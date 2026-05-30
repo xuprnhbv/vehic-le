@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · ניהול</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn">גלגול</a>
+          <a href="/leaderboard.html" class="nav-btn">טבלת מובילים</a>
+          <a href="/history.html" class="nav-btn">היסטוריה</a>
+          <a href="/admin.html" class="nav-btn nav-active">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <header>
+      <h1>לוח ניהול</h1>
+      <p class="tagline">סטטיסטיקות, משתמשים, גלגולים ולוגים</p>
+    </header>
+
+    <!-- Stats -->
+    <section class="list-panel">
+      <h2 class="section-title">סטטיסטיקות</h2>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-value">…</div><div class="stat-label">טוען</div></div>
+      </div>
+    </section>
+
+    <!-- Users -->
+    <section class="list-panel" style="margin-top:1.5rem">
+      <div class="section-header">
+        <h2 class="section-title">משתמשים</h2>
+        <input id="userSearch" type="search" placeholder="חפש לפי שם משתמש או מייל…" class="admin-search" />
+      </div>
+      <table class="score-table" id="usersTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>שם משתמש</th>
+            <th>מייל</th>
+            <th>מאומת</th>
+            <th>מנהל</th>
+            <th>גלגולים</th>
+            <th>נרשם</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody id="usersTbody"></tbody>
+      </table>
+      <p class="empty-msg hidden" id="usersEmpty">לא נמצאו משתמשים.</p>
+    </section>
+
+    <!-- Rolls -->
+    <section class="list-panel" style="margin-top:1.5rem">
+      <div class="section-header">
+        <h2 class="section-title">גלגולים אחרונים</h2>
+        <div class="admin-filters">
+          <input id="rollUserFilter" type="search" placeholder="סנן לפי משתמש…" class="admin-search" style="width:160px" />
+          <select id="rollTierFilter" class="admin-select">
+            <option value="">כל הדירוגים</option>
+            <option>S</option>
+            <option>A</option>
+            <option>B</option>
+            <option>C</option>
+            <option>D</option>
+          </select>
+        </div>
+      </div>
+      <table class="score-table" id="rollsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>משתמש</th>
+            <th>לוחית</th>
+            <th>דירוג</th>
+            <th>ניקוד</th>
+            <th>תאריך</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody id="rollsTbody"></tbody>
+      </table>
+      <p class="empty-msg hidden" id="rollsEmpty">אין גלגולים.</p>
+    </section>
+
+    <!-- Logs -->
+    <section class="list-panel" style="margin-top:1.5rem">
+      <div class="section-header">
+        <h2 class="section-title">לוגים</h2>
+        <div class="admin-filters">
+          <select id="logLimit" class="admin-select">
+            <option value="50">50 שורות</option>
+            <option value="200" selected>200 שורות</option>
+            <option value="500">500 שורות</option>
+          </select>
+          <button id="refreshLogsBtn" class="admin-btn">רענן</button>
+        </div>
+      </div>
+      <pre class="log-viewer" id="logViewer">טוען לוגים…</pre>
+    </section>
+  </main>
+
+  <script src="nav.js"></script>
+  <script>
+    (async function () {
+      // Auth guard — redirect if not admin.
+      let currentUser;
+      try {
+        const meRes = await fetch("/api/auth/me");
+        const { user } = await meRes.json();
+        if (!user?.isAdmin) { location.href = "/"; return; }
+        currentUser = user;
+      } catch {
+        location.href = "/";
+        return;
+      }
+
+      // ── Stats ──────────────────────────────────────────────────────────────
+
+      async function loadStats() {
+        try {
+          const data = await (await fetch("/api/admin/stats")).json();
+          const grid = document.getElementById("statsGrid");
+          const cards = [
+            ["סך משתמשים",          data.totalUsers],
+            ["משתמשים חדשים היום",  data.newToday],
+            ["חדשים — 7 ימים",      data.newLast7],
+            ["חדשים — 30 ימים",     data.newLast30],
+            ["סך גלגולים",          data.totalRolls],
+            ["גלגולים היום",        data.rollsToday],
+            ["גלגולים — 7 ימים",   data.rollsLast7],
+            ["פעילים היום",         data.activeToday],
+          ];
+          const tierMap = Object.fromEntries((data.tierDist || []).map(t => [t.tier, t.cnt]));
+          grid.innerHTML =
+            cards.map(([label, val]) =>
+              `<div class="stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`
+            ).join("") +
+            ["S","A","B","C","D"].map(t =>
+              `<div class="stat-card">
+                <div class="stat-value">${tierMap[t] ?? 0}</div>
+                <div class="stat-label"><span class="tier-pill tier-${t.toLowerCase()}">${t}</span></div>
+              </div>`
+            ).join("");
+        } catch {
+          document.getElementById("statsGrid").textContent = "תקלה בטעינת סטטיסטיקות.";
+        }
+      }
+
+      // ── Users ──────────────────────────────────────────────────────────────
+
+      async function loadUsers(q) {
+        try {
+          const url = q ? `/api/admin/users?q=${encodeURIComponent(q)}` : "/api/admin/users";
+          const { users } = await (await fetch(url)).json();
+          const tbody  = document.getElementById("usersTbody");
+          const empty  = document.getElementById("usersEmpty");
+          tbody.innerHTML = "";
+          if (!users.length) { empty.classList.remove("hidden"); return; }
+          empty.classList.add("hidden");
+          for (const u of users) {
+            const date = new Date(u.created_at.replace(" ", "T") + "Z").toLocaleDateString("he-IL");
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="mono">${u.id}</td>
+              <td>${u.username}</td>
+              <td class="mono" style="font-size:0.8rem">${u.email}</td>
+              <td>${u.email_verified ? "✓" : "✗"}</td>
+              <td>${u.is_admin ? "✓" : "—"}</td>
+              <td class="mono">${u.roll_count}</td>
+              <td style="font-size:0.8rem">${date}</td>
+              <td class="action-cell">
+                <button class="admin-btn reset-roll-btn" data-id="${u.id}" data-name="${u.username}" ${!u.rolled_today ? 'disabled style="opacity:0.35;cursor:default"' : ''}>
+                  אפס גלגול היום
+                </button>
+                ${u.id !== currentUser.id ? `
+                  <button class="admin-btn toggle-admin-btn" data-id="${u.id}" data-is-admin="${u.is_admin}">
+                    ${u.is_admin ? "הסר מנהל" : "הפוך למנהל"}
+                  </button>
+                  <button class="admin-btn danger-btn delete-user-btn" data-id="${u.id}" data-name="${u.username}">
+                    מחק
+                  </button>
+                ` : '<span style="color:var(--muted);font-size:0.8rem">אתה</span>'}
+              </td>`;
+            tbody.appendChild(tr);
+          }
+        } catch {
+          document.getElementById("usersEmpty").textContent = "תקלה בטעינת משתמשים.";
+          document.getElementById("usersEmpty").classList.remove("hidden");
+        }
+      }
+
+      // ── Rolls ──────────────────────────────────────────────────────────────
+
+      async function loadRolls() {
+        try {
+          const userQ = document.getElementById("rollUserFilter").value.trim();
+          const tierQ = document.getElementById("rollTierFilter").value;
+          const params = new URLSearchParams();
+          if (userQ) params.set("user", userQ);
+          if (tierQ) params.set("tier", tierQ);
+          const { rolls } = await (await fetch(`/api/admin/rolls?${params}`)).json();
+          const tbody = document.getElementById("rollsTbody");
+          const empty = document.getElementById("rollsEmpty");
+          tbody.innerHTML = "";
+          if (!rolls.length) { empty.classList.remove("hidden"); return; }
+          empty.classList.add("hidden");
+          rolls.forEach((r, i) => {
+            const date = new Date(r.created_at.replace(" ", "T") + "Z").toLocaleString("he-IL");
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${i + 1}</td>
+              <td>${r.username}</td>
+              <td class="mono">${r.plate_display}</td>
+              <td><span class="tier-pill tier-${r.tier.toLowerCase()}">${r.tier}</span></td>
+              <td class="mono">${r.score}</td>
+              <td style="font-size:0.8rem">${date}</td>
+              <td>
+                <button class="admin-btn danger-btn delete-roll-btn" data-id="${r.id}">מחק</button>
+              </td>`;
+            tbody.appendChild(tr);
+          });
+        } catch {
+          document.getElementById("rollsEmpty").textContent = "תקלה בטעינת גלגולים.";
+          document.getElementById("rollsEmpty").classList.remove("hidden");
+        }
+      }
+
+      // ── Logs ───────────────────────────────────────────────────────────────
+
+      async function loadLogs() {
+        try {
+          const limit = document.getElementById("logLimit").value;
+          const { logs } = await (await fetch(`/api/admin/logs?limit=${limit}`)).json();
+          const viewer = document.getElementById("logViewer");
+          if (!logs.length) { viewer.textContent = "אין לוגים עדיין."; return; }
+          viewer.innerHTML = logs.map(entry => {
+            const time = new Date(entry.ts).toLocaleTimeString("he-IL");
+            const cls  = `log-${entry.level}`;
+            const msg  = entry.msg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return `<span class="${cls}">[${time}] ${msg}</span>`;
+          }).join("\n");
+          viewer.scrollTop = viewer.scrollHeight;
+        } catch {
+          document.getElementById("logViewer").textContent = "תקלה בטעינת לוגים.";
+        }
+      }
+
+      // ── Event delegation ───────────────────────────────────────────────────
+
+      document.getElementById("usersTbody").addEventListener("click", async (e) => {
+        const toggleBtn   = e.target.closest(".toggle-admin-btn");
+        const deleteBtn   = e.target.closest(".delete-user-btn");
+        const resetRollBtn = e.target.closest(".reset-roll-btn:not([disabled])");
+        const q = document.getElementById("userSearch").value.trim();
+
+        if (resetRollBtn) {
+          const id   = resetRollBtn.dataset.id;
+          const name = resetRollBtn.dataset.name;
+          if (!confirm(`לאפס את גלגול היום של "${name}"? הם יוכלו לגלגל שוב היום.`)) return;
+          const res = await fetch(`/api/admin/users/${id}/today-roll`, { method: "DELETE" });
+          if (!res.ok) { const { error } = await res.json(); alert(error); return; }
+          loadUsers(q);
+          loadRolls();
+        }
+
+        if (toggleBtn) {
+          const id = toggleBtn.dataset.id;
+          const isAdmin = toggleBtn.dataset.isAdmin === "1";
+          const verb = isAdmin ? "הסרת הרשאות מנהל מ" : "מתן הרשאות מנהל ל";
+          if (!confirm(`${verb}משתמש #${id}?`)) return;
+          const res = await fetch(`/api/admin/users/${id}/admin`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isAdmin: !isAdmin }),
+          });
+          if (!res.ok) { const { error } = await res.json(); alert(error); return; }
+          loadUsers(q);
+        }
+
+        if (deleteBtn) {
+          const id   = deleteBtn.dataset.id;
+          const name = deleteBtn.dataset.name;
+          if (!confirm(`למחוק את המשתמש "${name}"?\nפעולה זו אינה הפיכה וכוללת מחיקת כל גלגוליו.`)) return;
+          const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+          if (!res.ok) { const { error } = await res.json(); alert(error); return; }
+          loadUsers(q);
+          loadRolls();
+        }
+      });
+
+      document.getElementById("rollsTbody").addEventListener("click", async (e) => {
+        const deleteBtn = e.target.closest(".delete-roll-btn");
+        if (deleteBtn) {
+          const id = deleteBtn.dataset.id;
+          if (!confirm(`למחוק גלגול #${id}?`)) return;
+          const res = await fetch(`/api/admin/rolls/${id}`, { method: "DELETE" });
+          if (!res.ok) { const { error } = await res.json(); alert(error); return; }
+          loadRolls();
+        }
+      });
+
+      // ── Filters & search ───────────────────────────────────────────────────
+
+      let searchTimer;
+      document.getElementById("userSearch").addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadUsers(e.target.value.trim()), 300);
+      });
+      document.getElementById("rollUserFilter").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadRolls, 300);
+      });
+      document.getElementById("rollTierFilter").addEventListener("change", loadRolls);
+      document.getElementById("logLimit").addEventListener("change", loadLogs);
+      document.getElementById("refreshLogsBtn").addEventListener("click", loadLogs);
+
+      // ── Initial load ───────────────────────────────────────────────────────
+
+      await Promise.all([loadStats(), loadUsers(), loadRolls(), loadLogs()]);
+
+      setInterval(loadLogs, 10_000);
+    })();
+  </script>
+</body>
+</html>

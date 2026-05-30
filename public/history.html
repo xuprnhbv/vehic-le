@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · ההיסטוריה שלי</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn">גלגול</a>
+          <a href="/leaderboard.html" class="nav-btn">טבלת מובילים</a>
+          <a href="/history.html" class="nav-btn nav-active">היסטוריה</a>
+          <a id="adminLink" href="/admin.html" class="nav-btn hidden">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <header>
+      <h1>ההיסטוריה שלי</h1>
+      <p class="tagline">כל הגלגולים שלך, מהאחרון לראשון</p>
+    </header>
+
+    <section class="total-score-banner hidden" id="totalScoreBanner">
+      <p class="total-score-label">ניקוד כולל</p>
+      <p class="total-score-value" id="totalScoreValue">0</p>
+    </section>
+
+    <section class="list-panel">
+      <table class="score-table" id="board">
+        <thead>
+          <tr><th>תאריך</th><th>לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="empty-msg hidden" id="emptyMsg"></p>
+    </section>
+  </main>
+
+  <script>
+    function pulseClassFor(points) {
+      if (points >= 20) return "pulse-high";
+      if (points >= 10) return "pulse-mid";
+      if (points >= 3)  return "pulse-low";
+      return "pulse-min";
+    }
+
+    (async function () {
+      const tbody = document.querySelector("#board tbody");
+      const board = document.getElementById("board");
+      const emptyMsg = document.getElementById("emptyMsg");
+      function showEmpty(text) {
+        board.classList.add("hidden");
+        emptyMsg.textContent = text;
+        emptyMsg.classList.remove("hidden");
+      }
+      try {
+        const res = await fetch("/api/me/history");
+        if (res.status === 401) {
+          showEmpty("יש להתחבר כדי לראות את ההיסטוריה.");
+          return;
+        }
+        const { rolls, totalScore } = await res.json();
+        const banner = document.getElementById("totalScoreBanner");
+        document.getElementById("totalScoreValue").textContent = totalScore.toLocaleString("he-IL");
+        banner.classList.remove("hidden");
+        if (!rolls.length) {
+          showEmpty("עדיין לא גלגלת. חזור לעמוד הראשי ונסה!");
+          return;
+        }
+        for (const row of rolls) {
+          const date = new Date(row.createdAt.replace(" ", "T") + "Z").toLocaleString("he-IL");
+          const tr = document.createElement("tr");
+          tr.className = "roll-row";
+          tr.innerHTML = `
+            <td>${date}</td>
+            <td class="mono">${row.plate}</td>
+            <td><span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span></td>
+            <td class="mono">${row.score}</td>
+            <td class="expand-toggle">▾</td>`;
+          tbody.appendChild(tr);
+
+          if (row.payload) {
+            const detailTr = document.createElement("tr");
+            detailTr.className = "roll-detail hidden";
+            const td = document.createElement("td");
+            td.colSpan = 5;
+            const dl = document.createElement("dl");
+            dl.className = "roll-breakdown";
+            for (const f of row.payload.fields) {
+              const dt = document.createElement("dt");
+              dt.textContent = f.label;
+              const dd = document.createElement("dd");
+              const valSpan = document.createElement("span");
+              valSpan.className = "field-value";
+              valSpan.textContent = f.value;
+              dd.appendChild(valSpan);
+              if (f.points) {
+                const pts = document.createElement("span");
+                pts.className = `field-points ${pulseClassFor(f.points)}`;
+                pts.textContent = `+${f.points}`;
+                dd.appendChild(pts);
+              }
+              dl.append(dt, dd);
+            }
+            if (row.payload.platePerks && row.payload.platePerks.length > 0) {
+              const dt = document.createElement("dt");
+              dt.textContent = "בונוס לוחית";
+              const dd = document.createElement("dd");
+              const chips = document.createElement("span");
+              chips.className = "field-value perk-chips";
+              row.payload.platePerks.forEach((p) => {
+                const chip = document.createElement("span");
+                chip.className = "perk-chip perk-chip-pop";
+                chip.textContent = `${p.name} +${p.pts}`;
+                chips.appendChild(chip);
+              });
+              const totalPts = row.payload.platePerks.reduce((s, p) => s + p.pts, 0);
+              const pts = document.createElement("span");
+              pts.className = `field-points pulse-high`;
+              pts.textContent = `+${totalPts}`;
+              dd.append(chips, pts);
+              dl.append(dt, dd);
+            }
+            td.appendChild(dl);
+            detailTr.appendChild(td);
+            tbody.appendChild(detailTr);
+
+            tr.addEventListener("click", () => {
+              const open = !detailTr.classList.contains("hidden");
+              detailTr.classList.toggle("hidden", open);
+              tr.querySelector(".expand-toggle").textContent = open ? "▾" : "▴";
+            });
+          }
+        }
+      } catch {
+        showEmpty("תקלה בטעינת ההיסטוריה.");
+      }
+    })();
+
+  </script>
+  <script src="nav.js"></script>
+</body>
+</html>

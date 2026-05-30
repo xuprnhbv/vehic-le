@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · טבלת מובילים</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn">גלגול</a>
+          <a href="/leaderboard.html" class="nav-btn nav-active">טבלת מובילים</a>
+          <a id="historyLink" href="/history.html" class="nav-btn hidden">היסטוריה</a>
+          <a id="adminLink" href="/admin.html" class="nav-btn hidden">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <header>
+      <h1>טבלת מובילים</h1>
+      <p class="tagline">הגלגולים בעלי הניקוד הגבוה ביותר</p>
+    </header>
+
+    <div class="tabs" id="periodTabs">
+      <button class="tab active" data-period="today">היום</button>
+      <button class="tab" data-period="7days">7 ימים</button>
+      <button class="tab" data-period="30days">30 ימים</button>
+      <button class="tab" data-period="all">כל הזמנים</button>
+    </div>
+
+    <div class="featured-roll hidden" id="featuredRoll">
+      <div class="featured-rank" id="featuredRank">🏆 #1</div>
+      <span class="tier-pill" id="featuredTier"></span>
+      <div class="featured-score" id="featuredScore"></div>
+      <div class="featured-plate" id="featuredPlate"></div>
+      <div class="featured-user" id="featuredUser"></div>
+      <dl class="featured-fields hidden" id="featuredFields"></dl>
+    </div>
+
+    <section class="list-panel">
+      <table class="score-table" id="board">
+        <thead>
+          <tr><th>#</th><th>משתמש</th><th>לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="empty-msg hidden" id="emptyMsg">אין גלגולים שמורים בתקופה זו.</p>
+    </section>
+  </main>
+
+  <script>
+    function pulseClassFor(points) {
+      if (points >= 20) return "pulse-high";
+      if (points >= 10) return "pulse-mid";
+      if (points >= 3)  return "pulse-low";
+      return "pulse-min";
+    }
+
+    function buildBreakdownDl(payload) {
+      const dl = document.createElement("dl");
+      dl.className = "roll-breakdown";
+      for (const f of payload.fields) {
+        const dt = document.createElement("dt");
+        dt.textContent = f.label;
+        const dd = document.createElement("dd");
+        const valSpan = document.createElement("span");
+        valSpan.className = "field-value";
+        valSpan.textContent = f.value;
+        dd.appendChild(valSpan);
+        if (f.points) {
+          const pts = document.createElement("span");
+          pts.className = `field-points ${pulseClassFor(f.points)}`;
+          pts.textContent = `+${f.points}`;
+          dd.appendChild(pts);
+        }
+        dl.append(dt, dd);
+      }
+      if (payload.platePerks && payload.platePerks.length > 0) {
+        const dt = document.createElement("dt");
+        dt.textContent = "בונוס לוחית";
+        const dd = document.createElement("dd");
+        const chips = document.createElement("span");
+        chips.className = "field-value perk-chips";
+        payload.platePerks.forEach((p) => {
+          const chip = document.createElement("span");
+          chip.className = "perk-chip perk-chip-pop";
+          chip.textContent = `${p.name} +${p.pts}`;
+          chips.appendChild(chip);
+        });
+        const totalPts = payload.platePerks.reduce((s, p) => s + p.pts, 0);
+        const pts = document.createElement("span");
+        pts.className = "field-points pulse-high";
+        pts.textContent = `+${totalPts}`;
+        dd.append(chips, pts);
+        dl.append(dt, dd);
+      }
+      return dl;
+    }
+
+    const tbody = document.querySelector("#board tbody");
+    const emptyMsg = document.getElementById("emptyMsg");
+    const board = document.getElementById("board");
+    const featuredRoll = document.getElementById("featuredRoll");
+    const featuredTier = document.getElementById("featuredTier");
+    const featuredScore = document.getElementById("featuredScore");
+    const featuredPlate = document.getElementById("featuredPlate");
+    const featuredUser = document.getElementById("featuredUser");
+    const featuredFields = document.getElementById("featuredFields");
+
+    async function loadLeaderboard(period) {
+      tbody.innerHTML = "";
+      board.classList.remove("hidden");
+      emptyMsg.classList.add("hidden");
+      featuredRoll.classList.add("hidden");
+
+      try {
+        const res = await fetch(`/api/leaderboard?period=${period}`);
+        const { leaderboard } = await res.json();
+
+        if (!leaderboard.length) {
+          board.classList.add("hidden");
+          emptyMsg.classList.remove("hidden");
+          return;
+        }
+
+        const showFeatured = period === "today";
+
+        if (showFeatured) {
+          const top = leaderboard[0];
+          featuredTier.textContent = top.tier;
+          featuredTier.className = `tier-pill tier-${top.tier.toLowerCase()}`;
+          featuredScore.textContent = top.score;
+          featuredPlate.textContent = top.plate;
+          featuredUser.textContent = top.username;
+          featuredFields.innerHTML = "";
+          if (top.payload) {
+            const dl = buildBreakdownDl(top.payload);
+            while (dl.firstChild) featuredFields.appendChild(dl.firstChild);
+            featuredFields.classList.remove("hidden");
+          } else {
+            featuredFields.classList.add("hidden");
+          }
+          featuredRoll.classList.remove("hidden");
+        }
+
+        const tableRows = showFeatured ? leaderboard.slice(1) : leaderboard;
+
+        if (!tableRows.length) {
+          board.classList.add("hidden");
+        } else {
+          for (const row of tableRows) {
+            const tr = document.createElement("tr");
+            tr.className = "roll-row";
+            tr.innerHTML = `
+              <td>${row.rank}</td>
+              <td>${row.username}</td>
+              <td class="mono">${row.plate}</td>
+              <td><span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span></td>
+              <td class="mono">${row.score}</td>
+              <td class="expand-toggle">▾</td>`;
+            tbody.appendChild(tr);
+
+            if (row.payload) {
+              const detailTr = document.createElement("tr");
+              detailTr.className = "roll-detail hidden";
+              const td = document.createElement("td");
+              td.colSpan = 6;
+              td.appendChild(buildBreakdownDl(row.payload));
+              detailTr.appendChild(td);
+              tbody.appendChild(detailTr);
+              tr.addEventListener("click", () => {
+                const open = !detailTr.classList.contains("hidden");
+                detailTr.classList.toggle("hidden", open);
+                tr.querySelector(".expand-toggle").textContent = open ? "▾" : "▴";
+              });
+            }
+          }
+        }
+      } catch {
+        emptyMsg.textContent = "תקלה בטעינת הטבלה.";
+        emptyMsg.classList.remove("hidden");
+      }
+    }
+
+    document.getElementById("periodTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab");
+      if (!btn) return;
+      document.querySelectorAll("#periodTabs .tab").forEach((t) => t.classList.remove("active"));
+      btn.classList.add("active");
+      loadLeaderboard(btn.dataset.period);
+    });
+
+    loadLeaderboard("today");
+
+  </script>
+  <script src="nav.js"></script>
+</body>
+</html>

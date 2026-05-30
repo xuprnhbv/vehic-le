@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · גלגל לוחית</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn nav-active">גלגול</a>
+          <a href="/leaderboard.html" class="nav-btn">טבלת מובילים</a>
+          <a id="historyLink" href="/history.html" class="nav-btn hidden">היסטוריה</a>
+          <a id="adminLink" href="/admin.html" class="nav-btn hidden">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <div id="authNotice" class="auth-notice hidden"></div>
+
+    <header>
+      <h1>Vehic-le</h1>
+      <p class="tagline">גלגל לוחית רישוי אקראית וגלה איזה רכב יצא לך</p>
+    </header>
+
+    <section class="stage">
+      <div id="plate" class="plate" aria-live="polite">
+        <span class="plate-placeholder">— — — — — — —</span>
+      </div>
+
+      <button id="rollBtn" class="roll-btn" type="button">
+        גלגל!
+      </button>
+
+      <div id="status" class="status" role="status"></div>
+    </section>
+
+    <section id="result" class="result hidden">
+      <h2>פרטי הרכב</h2>
+      <dl id="resultFields"></dl>
+      <div class="result-actions">
+        <button id="shareBtn" class="share-btn hidden" type="button">שתף תוצאה</button>
+      </div>
+    </section>
+  </main>
+
+    <!-- Login / register modal -->
+    <div id="authModal" class="modal-overlay hidden">
+      <div class="modal">
+        <button type="button" class="modal-close" id="modalClose" aria-label="סגור">×</button>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="login">התחברות</button>
+          <button type="button" class="tab" data-tab="register">הרשמה</button>
+        </div>
+
+        <form id="loginForm" class="auth-form">
+          <label>שם משתמש או מייל
+            <input type="text" name="identifier" autocomplete="username" required />
+          </label>
+          <label>סיסמה
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="auth-submit">התחבר</button>
+          <div class="form-msg" id="loginMsg"></div>
+        </form>
+
+        <form id="registerForm" class="auth-form hidden">
+          <label>שם משתמש
+            <input type="text" name="username" autocomplete="username" required />
+          </label>
+          <label>מייל
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+          <label>סיסמה (8 תווים לפחות)
+            <input type="password" name="password" autocomplete="new-password" required minlength="8" />
+          </label>
+          <button type="submit" class="auth-submit">הרשם</button>
+          <div class="form-msg" id="registerMsg"></div>
+        </form>
+
+        <div id="googleWrap" class="google-wrap hidden">
+          <div class="divider"><span>או</span></div>
+          <a href="/api/auth/google" class="google-btn">המשך עם Google</a>
+        </div>
+      </div>
+    </div>
+
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

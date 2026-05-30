@@ -1,0 +1,22 @@
+{
+  "name": "vehic-le",
+  "version": "1.0.0",
+  "description": "Server-authoritative random Israeli license-plate roller.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.19.2",
+    "express-session": "^1.18.1",
+    "nodemailer": "^8.0.10",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-local": "^1.0.0"
+  }
+}
