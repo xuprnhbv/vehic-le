@@ -2,6 +2,7 @@
 // and surfaces verification / OAuth notices. No scoring or roll logic lives here.
 
 (function () {
+  const authChannel = new BroadcastChannel("vehic-le-auth");
   const authArea = document.getElementById("authArea");
   const historyLink = document.getElementById("historyLink");
   const notice = document.getElementById("authNotice");
@@ -96,6 +97,7 @@
       }
       closeModal();
       renderLoggedIn(data.user);
+      authChannel.postMessage({ type: "login", user: data.user });
     } catch {
       loginMsg.className = "form-msg err";
       loginMsg.textContent = "תקלת רשת, נסה שוב";
@@ -129,6 +131,7 @@
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    authChannel.postMessage({ type: "logout" });
     renderLoggedOut();
     window.dispatchEvent(new CustomEvent("auth:loggedOut"));
   }
@@ -146,6 +149,11 @@
       renderLoggedOut();
     }
   }
+
+  authChannel.onmessage = ({ data }) => {
+    if (data.type === "login") renderLoggedIn(data.user);
+    else if (data.type === "logout") renderLoggedOut();
+  };
 
   init();
 })();

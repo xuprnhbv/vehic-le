@@ -4,7 +4,9 @@
   "description": "Server-authoritative random Israeli license-plate roller.",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "db:delete-users": "node -e \"const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('data/app.db');db.exec('PRAGMA foreign_keys=ON');db.exec('DELETE FROM users');console.log('All users deleted (rolls and tokens cascade-deleted too).');\"",
+    "db:make-admin": "node -e \"const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('data/app.db');const r=db.prepare(\\\"UPDATE users SET is_admin=1 WHERE username='idm'\\\").run();console.log(r.changes?'idm is now admin':'user not found');\""
   },
   "engines": {
     "node": ">=22.5"
