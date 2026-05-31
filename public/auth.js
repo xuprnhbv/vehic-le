@@ -21,10 +21,13 @@
   }
 
   // Surface ?verified / ?auth flags from server redirects, then clean the URL.
+  // Returns true when this load is a successful email verification, so init()
+  // can announce the auto-login to other tabs once /me confirms the session.
   function handleRedirectFlags() {
     const params = new URLSearchParams(location.search);
+    let justVerified = false;
     if (params.get("verified") === "1") {
-      showNotice("המייל אומת בהצלחה! אפשר להתחבר עכשיו.", "ok");
+      justVerified = true;
     } else if (params.get("verified") === "invalid") {
       showNotice("קישור האימות לא תקין או שפג תוקפו.", "err");
     } else if (params.get("auth") === "google_failed") {
@@ -33,6 +36,7 @@
     if (params.has("verified") || params.has("auth")) {
       history.replaceState({}, "", location.pathname);
     }
+    return justVerified;
   }
 
   function renderLoggedOut() {
@@ -138,13 +142,24 @@
 
   // Boot: figure out who we are and whether Google is available.
   async function init() {
-    handleRedirectFlags();
+    const justVerified = handleRedirectFlags();
     try {
       const res = await fetch("/api/auth/me");
       const data = await res.json();
       googleWrap.classList.toggle("hidden", !data.googleEnabled);
-      if (data.user) renderLoggedIn(data.user);
-      else renderLoggedOut();
+      if (data.user) {
+        renderLoggedIn(data.user);
+        // The verify link logs the user in server-side; tell other open tabs
+        // (e.g. the one they registered in) and confirm it in the notice.
+        if (justVerified) {
+          showNotice(`המייל אומת בהצלחה! התחברת בתור ${data.user.username}.`, "ok");
+          authChannel.postMessage({ type: "login", user: data.user });
+        }
+      } else {
+        renderLoggedOut();
+        // Verified but not logged in (e.g. session login failed) — let them in manually.
+        if (justVerified) showNotice("המייל אומת בהצלחה! אפשר להתחבר עכשיו.", "ok");
+      }
     } catch {
       renderLoggedOut();
     }

@@ -186,7 +186,15 @@ router.get("/verify", (req, res, next) => {
     const userId = db.consumeVerifyToken(String(req.query.token || ""));
     if (!userId) return res.redirect("/?verified=invalid");
     db.verifyUserEmail(userId);
-    res.redirect("/?verified=1");
+    // Log the freshly verified user into this browser session so they don't
+    // have to type their credentials again. If login fails for any reason we
+    // still redirect with the success flag — they can log in manually.
+    const user = db.findUserById(userId);
+    if (!user) return res.redirect("/?verified=1");
+    req.login(user, (loginErr) => {
+      if (loginErr) return res.redirect("/?verified=1");
+      res.redirect("/?verified=1");
+    });
   } catch (err) {
     next(err);
   }
