@@ -1,7 +1,7 @@
 // Client is animation-only. The server rolls the plate, fetches the record, and
 // scores it; we just fetch the finished payload from /api/roll and play it back.
 
-const GAME_URL = 'http://localhost:3000/';
+const GAME_URL = window.location.origin + '/';
 const TIER_EMOJI = { S: '🌟', A: '🟣', B: '🔵', C: '🟢', D: '⚪' };
 
 const plateEl = document.getElementById("plate");
