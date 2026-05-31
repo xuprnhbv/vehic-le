@@ -12,6 +12,9 @@
 
 * { box-sizing: border-box; }
 
+html, body { overflow-x: hidden; }
+img, table { max-width: 100%; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
@@ -803,6 +806,8 @@ dd {
   border-radius: 16px;
   padding: 1.5rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .score-table {
@@ -1051,3 +1056,61 @@ dd {
 .log-info  { color: #94a3b8; }
 .log-warn  { color: #fbbf24; }
 .log-error { color: #f87171; }
+
+/* ===================== Responsive ===================== */
+
+/* Wide tables (leaderboard 6-col, admin 8-col) keep their natural column
+   width and scroll inside .list-panel instead of widening the page. */
+.score-table { min-width: max-content; }
+
+/* ------- Tablet / large phone ------- */
+@media (max-width: 640px) {
+  .app { padding: 1.25rem 0.85rem 3rem; }
+
+  header { margin-bottom: 1.5rem; }
+  header h1 { font-size: 2.1rem; }
+
+  .stage { padding: 1.5rem 1rem; }
+
+  .plate {
+    font-size: 1.9rem;
+    min-width: 0;
+    padding: 0.6rem 0.9rem;
+    letter-spacing: 0.08em;
+  }
+
+  .rating-badge { width: 96px; height: 96px; font-size: 2.4rem; }
+  .rating-badge.tier-a { font-size: 2.5rem; }
+  .rating-badge.tier-s { font-size: 2.55rem; }
+
+  .result { padding: 1.25rem; }
+
+  .total-score-value { font-size: 2.8rem; }
+  .total-score-banner { padding: 1.25rem 1.5rem; }
+
+  .list-panel { padding: 1rem; }
+
+  .score-table { font-size: 0.85rem; }
+  .score-table th,
+  .score-table td { padding: 0.5rem 0.4rem; }
+
+  .section-header { flex-direction: column; align-items: stretch; }
+  .admin-filters { width: 100%; }
+  .admin-search,
+  .admin-filters .admin-search { width: 100%; }
+
+  .modal { padding: 1.5rem 1.25rem; }
+}
+
+/* ------- Small phone ------- */
+@media (max-width: 380px) {
+  header h1 { font-size: 1.75rem; }
+
+  .plate { font-size: 1.55rem; letter-spacing: 0.05em; }
+
+  .roll-btn { width: 100%; padding: 0.85rem 1rem; }
+
+  .topbar { padding: 0.5rem 0.7rem; gap: 0.5rem; }
+  .topbar-start { gap: 0.6rem; }
+  .nav-btn { padding: 0.3rem 0.6rem; font-size: 0.85rem; }
+}
