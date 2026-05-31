@@ -17,6 +17,11 @@ const admin = require("./admin");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Fly.io (and most reverse proxies) terminate TLS and forward requests over
+// plain HTTP. Without this, Express sees req.secure=false and won't set the
+// session cookie when secure:true is configured, logging users out on every request.
+app.set("trust proxy", 1);
+
 app.use(express.json());
 
 // Cookie session, persisted in the same SQLite file as everything else.
