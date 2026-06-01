@@ -180,21 +180,40 @@ function getTodayRank(userId) {
   return rank;
 }
 
-// Top rolls across all users, one row per roll, joined to the owner's username.
+// Leaderboard. For 'today': one row per roll, ranked by individual score. For every
+// other scope: one row per user, ranked by their summed score in the window — the
+// plate/tier/payload shown come from that user's single best roll (see below).
 function getLeaderboard(limit = 50, period = 'today') {
-  const where = {
-    today:   `WHERE date(r.created_at) = date('now')`,
-    '7days': `WHERE r.created_at >= datetime('now', '-7 days')`,
-    '30days':`WHERE r.created_at >= datetime('now', '-30 days')`,
-    all:     '',
-  }[period] ?? `WHERE date(r.created_at) = date('now')`;
+  if (period === 'today') {
+    return db
+      .prepare(
+        `SELECT u.username, r.plate_display, r.score, r.tier, r.created_at, r.payload_json
+         FROM rolls r JOIN users u ON u.id = r.user_id
+         WHERE date(r.created_at) = date('now')
+         ORDER BY r.score DESC, r.created_at ASC LIMIT ?`
+      )
+      .all(limit);
+  }
 
+  const where = {
+    '7days':  `WHERE r.created_at >= datetime('now', '-7 days')`,
+    '30days': `WHERE r.created_at >= datetime('now', '-30 days')`,
+    all:      '',
+  }[period] ?? '';
+
+  // SQLite quirk: with exactly one MAX() in the query, the bare columns
+  // (plate_display/tier/payload_json/created_at) come from the MAX row — i.e. each
+  // user's best roll. `score` is the user's total across the window.
   return db
     .prepare(
-      `SELECT u.username, r.plate_display, r.score, r.tier, r.created_at, r.payload_json
+      `SELECT u.username,
+              SUM(r.score) AS score,
+              MAX(r.score) AS best_score,
+              r.plate_display, r.tier, r.payload_json, r.created_at
        FROM rolls r JOIN users u ON u.id = r.user_id
        ${where}
-       ORDER BY r.score DESC, r.created_at ASC LIMIT ?`
+       GROUP BY u.id
+       ORDER BY score DESC, u.username ASC LIMIT ?`
     )
     .all(limit);
 }
