@@ -45,7 +45,7 @@
     <section class="list-panel">
       <table class="score-table" id="board">
         <thead>
-          <tr><th>#</th><th>משתמש</th><th>לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>
+          <tr><th>#</th><th>משתמש</th><th id="plateColHeader">לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -117,6 +117,7 @@
       board.classList.remove("hidden");
       emptyMsg.classList.add("hidden");
       featuredRoll.classList.add("hidden");
+      document.getElementById("plateColHeader").textContent = period === "today" ? "לוחית" : "גלגול מוביל";
 
       try {
         const res = await fetch(`/api/leaderboard?period=${period}`);
