@@ -44,8 +44,8 @@
 
     <section class="list-panel">
       <table class="score-table" id="board">
-        <thead>
-          <tr><th>#</th><th>משתמש</th><th id="plateColHeader">לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>
+        <thead id="boardHead">
+          <tr><th>#</th><th>משתמש</th><th>לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -112,12 +112,21 @@
     const featuredUser = document.getElementById("featuredUser");
     const featuredFields = document.getElementById("featuredFields");
 
+    function renderTodayHead() {
+      document.getElementById("boardHead").innerHTML =
+        `<tr><th>#</th><th>משתמש</th><th>לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>`;
+    }
+
+    function renderAggHead() {
+      document.getElementById("boardHead").innerHTML =
+        `<tr><th>#</th><th>משתמש</th><th class="th-total-score">ניקוד כולל</th><th>גלגול מוביל</th><th></th></tr>`;
+    }
+
     async function loadLeaderboard(period) {
       tbody.innerHTML = "";
       board.classList.remove("hidden");
       emptyMsg.classList.add("hidden");
       featuredRoll.classList.add("hidden");
-      document.getElementById("plateColHeader").textContent = period === "today" ? "לוחית" : "גלגול מוביל";
 
       try {
         const res = await fetch(`/api/leaderboard?period=${period}`);
@@ -129,9 +138,10 @@
           return;
         }
 
-        const showFeatured = period === "today";
+        const isToday = period === "today";
 
-        if (showFeatured) {
+        if (isToday) {
+          renderTodayHead();
           const top = leaderboard[0];
           featuredTier.textContent = top.tier;
           featuredTier.className = `tier-pill tier-${top.tier.toLowerCase()}`;
@@ -147,16 +157,22 @@
             featuredFields.classList.add("hidden");
           }
           featuredRoll.classList.remove("hidden");
+        } else {
+          renderAggHead();
         }
 
-        const tableRows = showFeatured ? leaderboard.slice(1) : leaderboard;
+        const tableRows = isToday ? leaderboard.slice(1) : leaderboard;
 
         if (!tableRows.length) {
           board.classList.add("hidden");
-        } else {
-          for (const row of tableRows) {
-            const tr = document.createElement("tr");
-            tr.className = "roll-row";
+          return;
+        }
+
+        for (const row of tableRows) {
+          const tr = document.createElement("tr");
+          tr.className = "roll-row";
+
+          if (isToday) {
             tr.innerHTML = `
               <td>${row.rank}</td>
               <td>${row.username}</td>
@@ -164,22 +180,35 @@
               <td><span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span></td>
               <td class="mono">${row.score}</td>
               <td class="expand-toggle">▾</td>`;
-            tbody.appendChild(tr);
+          } else {
+            const bestScore = row.bestScore ?? row.score;
+            tr.innerHTML = `
+              <td>${row.rank}</td>
+              <td>${row.username}</td>
+              <td class="td-total-score"><span class="total-score-num">${row.score}</span></td>
+              <td class="td-best-roll">
+                <span class="mono best-roll-plate">${row.plate}</span>
+                <span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span>
+                <span class="best-roll-pts">${bestScore}</span>
+              </td>
+              <td class="expand-toggle">▾</td>`;
+          }
 
-            if (row.payload) {
-              const detailTr = document.createElement("tr");
-              detailTr.className = "roll-detail hidden";
-              const td = document.createElement("td");
-              td.colSpan = 6;
-              td.appendChild(buildBreakdownDl(row.payload));
-              detailTr.appendChild(td);
-              tbody.appendChild(detailTr);
-              tr.addEventListener("click", () => {
-                const open = !detailTr.classList.contains("hidden");
-                detailTr.classList.toggle("hidden", open);
-                tr.querySelector(".expand-toggle").textContent = open ? "▾" : "▴";
-              });
-            }
+          tbody.appendChild(tr);
+
+          if (row.payload) {
+            const detailTr = document.createElement("tr");
+            detailTr.className = "roll-detail hidden";
+            const td = document.createElement("td");
+            td.colSpan = isToday ? 6 : 5;
+            td.appendChild(buildBreakdownDl(row.payload));
+            detailTr.appendChild(td);
+            tbody.appendChild(detailTr);
+            tr.addEventListener("click", () => {
+              const open = !detailTr.classList.contains("hidden");
+              detailTr.classList.toggle("hidden", open);
+              tr.querySelector(".expand-toggle").textContent = open ? "▾" : "▴";
+            });
           }
         }
       } catch {
