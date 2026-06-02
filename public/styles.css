@@ -919,6 +919,43 @@ dd {
   flex-wrap: wrap;
 }
 
+/* ------- Aggregate leaderboard (non-today) columns ------- */
+.th-total-score {
+  color: var(--accent);
+  text-align: center !important;
+}
+
+.td-total-score {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.total-score-num {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.td-best-roll {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.best-roll-plate {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.best-roll-pts {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 /* ===================== Admin dashboard ===================== */
 
 .stats-grid {

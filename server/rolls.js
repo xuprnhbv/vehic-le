@@ -47,6 +47,7 @@ router.get("/leaderboard", (req, res, next) => {
       username: r.username,
       plate: r.plate_display,
       score: r.score,
+      bestScore: r.best_score ?? null,
       tier: r.tier,
       createdAt: r.created_at,
       payload: r.payload_json ? JSON.parse(r.payload_json) : null,
