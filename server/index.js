@@ -9,7 +9,7 @@ const passport = require("passport");
 
 const { startRefreshTimer, rollRecord } = require("./dataset");
 const { buildRollPayload } = require("./scoring");
-const { insertRoll, hasRolledToday, getTodayRank } = require("./db");
+const { insertRoll, hasRolledToday, getTodayRank, createMessage } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
 const admin = require("./admin");
@@ -56,6 +56,48 @@ app.use("/api/admin", admin.router);
 app.use("/api/push", push.router);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
+
+// Public contact form. Anyone (logged-in or anonymous) may send a message; it
+// lands in the admin dashboard. Tiny in-memory rate limiter slows spam per IP.
+const contactHits = new Map();
+const CONTACT_WINDOW_MS = 15 * 60 * 1000;
+const CONTACT_MAX = 10;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.post("/api/contact", (req, res, next) => {
+  const now = Date.now();
+  const entry = contactHits.get(req.ip);
+  if (!entry || now > entry.reset) {
+    contactHits.set(req.ip, { count: 1, reset: now + CONTACT_WINDOW_MS });
+  } else if (entry.count >= CONTACT_MAX) {
+    return res.status(429).json({ error: "יותר מדי הודעות, נסו שוב מאוחר יותר" });
+  } else {
+    entry.count++;
+  }
+
+  try {
+    const body = String(req.body.body || "").trim();
+    let email = String(req.body.email || "").trim().toLowerCase();
+    if (!body) {
+      return res.status(400).json({ error: "לא ניתן לשלוח הודעה ריקה" });
+    }
+    if (body.length > 2000) {
+      return res.status(400).json({ error: "ההודעה ארוכה מדי (עד 2000 תווים)" });
+    }
+    if (email && !EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: "כתובת מייל לא תקינה" });
+    }
+    let userId = null;
+    if (req.user) {
+      userId = req.user.id;
+      if (!email) email = req.user.email;
+    }
+    createMessage({ userId, email: email || null, body });
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // The one endpoint that matters: the server rolls a random record, scores it,
 // and hands the client a finished payload it can only animate — not influence.

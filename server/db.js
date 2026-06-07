@@ -57,6 +57,17 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL, -- null = anonymous
+    email      TEXT,            -- optional reply-to, stored lowercased/trimmed
+    body       TEXT NOT NULL,
+    is_read    INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(is_read, created_at DESC);
 `);
 
 // Additive migration: add is_admin column if this is an existing database.
@@ -371,6 +382,37 @@ function deleteTodayRoll(userId) {
   }
 }
 
+// ── Contact messages ──────────────────────────────────────────────────────────
+
+function createMessage({ userId = null, email = null, body }) {
+  const cleanEmail = email ? normEmail(email) : null;
+  db.prepare(
+    `INSERT INTO messages (user_id, email, body) VALUES (?, ?, ?)`
+  ).run(userId, cleanEmail, body);
+}
+
+function getMessages(limit = 200) {
+  return db.prepare(`
+    SELECT m.id, m.email, m.body, m.is_read, m.created_at, u.username
+    FROM messages m
+    LEFT JOIN users u ON u.id = m.user_id
+    ORDER BY m.created_at DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+function countUnreadMessages() {
+  return db.prepare(`SELECT COUNT(*) AS n FROM messages WHERE is_read = 0`).get().n;
+}
+
+function setMessageRead(messageId, isRead) {
+  db.prepare(`UPDATE messages SET is_read = ? WHERE id = ?`).run(isRead ? 1 : 0, messageId);
+}
+
+function deleteMessage(messageId) {
+  db.prepare(`DELETE FROM messages WHERE id = ?`).run(messageId);
+}
+
 module.exports = {
   db,
   createUser,
@@ -403,4 +445,9 @@ module.exports = {
   getAllRolls,
   deleteRoll,
   deleteTodayRoll,
+  createMessage,
+  getMessages,
+  countUnreadMessages,
+  setMessageRead,
+  deleteMessage,
 };

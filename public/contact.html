@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · צרו איתי קשר</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn">גלגול</a>
+          <a href="/leaderboard.html" class="nav-btn">טבלת מובילים</a>
+          <a id="historyLink" href="/history.html" class="nav-btn hidden">היסטוריה</a>
+          <a id="adminLink" href="/admin.html" class="nav-btn hidden">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <header>
+      <h1>צרו איתי קשר</h1>
+      <p class="tagline">יש לכם שאלה, רעיון או באג? כתבו לי כאן.</p>
+    </header>
+
+    <section class="list-panel">
+      <form id="contactForm" class="auth-form contact-form">
+        <label>מייל (לא חובה)
+          <input type="email" name="email" autocomplete="email" placeholder="כדי שאוכל לחזור אליכם" />
+        </label>
+        <label>הודעה
+          <textarea name="body" rows="6" maxlength="2000" required placeholder="כתבו כאן…"></textarea>
+        </label>
+        <button type="submit" class="auth-submit">שלח</button>
+        <div class="form-msg" id="contactMsg"></div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <nav class="footer-links">
+      <a href="/contact.html" class="footer-link">צרו איתי קשר</a>
+    </nav>
+  </footer>
+
+  <script src="nav.js"></script>
+  <script>
+    (function () {
+      const form = document.getElementById("contactForm");
+      const msg  = document.getElementById("contactMsg");
+      const emailInput = form.elements.email;
+      const submitBtn  = form.querySelector("button[type=submit]");
+
+      // Prefill the email field for logged-in users.
+      fetch("/api/auth/me")
+        .then(r => r.json())
+        .then(({ user }) => { if (user?.email && !emailInput.value) emailInput.value = user.email; })
+        .catch(() => {});
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const body = form.elements.body.value.trim();
+        if (!body) {
+          msg.textContent = "לא ניתן לשלוח הודעה ריקה";
+          msg.style.color = "#f87171";
+          return;
+        }
+        submitBtn.disabled = true;
+        msg.textContent = "שולח…";
+        msg.style.color = "var(--muted)";
+        try {
+          const res = await fetch("/api/contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: emailInput.value.trim(), body }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            msg.textContent = data.error || "תקלה בשליחה, נסו שוב";
+            msg.style.color = "#f87171";
+          } else {
+            msg.textContent = "ההודעה נשלחה, תודה!";
+            msg.style.color = "#4ade80";
+            form.elements.body.value = "";
+          }
+        } catch {
+          msg.textContent = "תקלה בשליחה, נסו שוב";
+          msg.style.color = "#f87171";
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
