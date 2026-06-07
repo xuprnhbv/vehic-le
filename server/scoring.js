@@ -330,7 +330,7 @@ function hasConsecutiveRun(d, step) {
 const PLATE_PERKS = [
   {
     id: "monodigit",
-    name: "ספרה אחת",
+    name: "ספרה בודדה",
     pts: 40,
     check: (d) => new Set(d).size === 1,
   },
@@ -371,7 +371,7 @@ const PLATE_PERKS = [
   },
   {
     id: "allunique",
-    name: "ללא חזרות",
+    name: "ללא מספרים חוזרים",
     pts: 6,
     check: (d) => new Set(d).size === d.length,
   },
@@ -389,7 +389,7 @@ const PLATE_PERKS = [
   },
   {
     id: "lucky7sum",
-    name: "סכום שבע",
+    name: "סכום מתחלק בשבע",
     pts: 4,
     check: (d) => d.split("").reduce((s, c) => s + Number(c), 0) % 7 === 0,
   },
@@ -397,13 +397,13 @@ const PLATE_PERKS = [
   // ── Composition ────────────────────────────────────────────────────────────
   {
     id: "onlyeven",
-    name: "רק זוגיות",
+    name: "רק ספרות זוגיות",
     pts: 10,
     check: (d) => isAllIn(d, "02468"),
   },
   {
     id: "onlyodd",
-    name: "רק אי-זוגיות",
+    name: "רק ספרות אי-זוגיות",
     pts: 10,
     check: (d) => isAllIn(d, "13579"),
   },
@@ -427,7 +427,7 @@ const PLATE_PERKS = [
   },
   {
     id: "onlyprimes",
-    name: "ספרות ראשוניות",
+    name: "רק ספרות ראשוניות",
     pts: 9,
     check: (d) => isAllIn(d, "2357"),
   },
@@ -471,19 +471,19 @@ const PLATE_PERKS = [
   },
   {
     id: "threeup",
-    name: "שלשת עולה",
+    name: "שלשה עולה",
     pts: 4,
     check: (d) => hasConsecutiveRun(d, 1),
   },
   {
     id: "threedown",
-    name: "שלשת יורדת",
+    name: "שלשה יורדת",
     pts: 4,
     check: (d) => hasConsecutiveRun(d, -1),
   },
   {
     id: "triple666",
-    name: "666",
+    name: "מספר השטן",
     pts: 7,
     check: (d) => d.includes("666"),
   },
@@ -501,19 +501,19 @@ const PLATE_PERKS = [
   },
   {
     id: "innerzero",
-    name: "אפסים פנימיים",
+    name: "אפסים מוכלים",
     pts: 6,
     check: (d) => (d.slice(1, -1).match(/0/g) || []).length >= 2,
   },
   {
     id: "quaddigit",
-    name: "רביעיית ספרה",
+    name: "רביעייה",
     pts: 10,
     check: (d) => maxDigitCount(d) >= 4,
   },
   {
     id: "quintdigit",
-    name: "חמישיית ספרה",
+    name: "חמישייה",
     pts: 18,
     check: (d) => maxDigitCount(d) >= 5,
   },
@@ -521,25 +521,25 @@ const PLATE_PERKS = [
   // ── Math ────────────────────────────────────────────────────────────────────
   {
     id: "mult11",
-    name: "כפולת 11",
+    name: "מתחלק ב11",
     pts: 6,
     check: (d) => Number(d) % 11 === 0,
   },
   {
     id: "mult13",
-    name: "כפולת 13",
+    name: "מתחלק ב13",
     pts: 7,
     check: (d) => Number(d) % 13 === 0,
   },
   {
     id: "mult100",
-    name: "כפולת 100",
+    name: "מתחלק ב100",
     pts: 3,
     check: (d) => d.endsWith("00") && !d.endsWith("000"),
   },
   {
     id: "mult10000",
-    name: "כפולת 10,000",
+    name: "מתחלק ב10,000",
     pts: 12,
     check: (d) => Number(d) % 10000 === 0,
   },
@@ -569,7 +569,7 @@ const PLATE_PERKS = [
   },
   {
     id: "gematria18",
-    name: "גימטרייה חי",
+    name: "גימטרייה ח\"י",
     pts: 6,
     check: (d) => digitSum(d) === 18,
   },
@@ -581,7 +581,7 @@ const PLATE_PERKS = [
   },
   {
     id: "smallsum",
-    name: "סכום קטן",
+    name: "סכום קטן מ7",
     pts: 5,
     check: (d) => digitSum(d) <= 7,
   },
@@ -595,7 +595,7 @@ const PLATE_PERKS = [
   },
   {
     id: "contains1337",
-    name: "1337",
+    name: "l33t",
     pts: 10,
     check: (d) => d.includes("1337"),
   },
@@ -621,19 +621,19 @@ const PLATE_PERKS = [
   // ── Position ───────────────────────────────────────────────────────────────
   {
     id: "sameedges",
-    name: "קצוות זהות",
+    name: "קצוות זהים",
     pts: 5,
     check: (d) => d[0] === d[d.length - 1],
   },
   {
     id: "nearedges",
-    name: "קצוות סמוכות",
+    name: "קצוות סמוכים",
     pts: 3,
     check: (d) => Math.abs(Number(d[0]) - Number(d[d.length - 1])) === 1,
   },
   {
     id: "nondecreasing",
-    name: "עליה רכה",
+    name: "ספרות עולות",
     pts: 8,
     check: (d) => {
       for (let i = 1; i < d.length; i++) if (Number(d[i]) < Number(d[i - 1])) return false;
@@ -642,7 +642,7 @@ const PLATE_PERKS = [
   },
   {
     id: "nonincreasing",
-    name: "ירידה רכה",
+    name: "ספרות יורדות",
     pts: 8,
     check: (d) => {
       for (let i = 1; i < d.length; i++) if (Number(d[i]) > Number(d[i - 1])) return false;
