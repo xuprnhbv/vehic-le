@@ -103,11 +103,12 @@ function makeSlotWindow() {
 function lockSlot(reel, finalChar) {
   reel.classList.remove("slot-spinning");
   void reel.offsetHeight;
-  reel.style.transition = "transform 0.22s cubic-bezier(0.1, 0.9, 0.3, 1)";
+  // Slower, weightier settle so each digit lands with a dramatic ease-out.
+  reel.style.transition = "transform 0.85s cubic-bezier(0.12, 0.8, 0.18, 1)";
   reel.style.transform = `translateY(-${10 + parseInt(finalChar)}em)`;
   const win = reel.parentElement;
   win.classList.add("slot-locked");
-  setTimeout(() => win?.classList.remove("slot-locked"), 450);
+  setTimeout(() => win?.classList.remove("slot-locked"), 1100);
 }
 
 function buildSlotPlate(format) {
@@ -130,12 +131,17 @@ function buildSlotPlate(format) {
 
 async function revealPlate(plate) {
   const slots = buildSlotPlate(plate.display);
-  await sleep(500);
+  await sleep(900);
   for (let i = 0; i < slots.length; i++) {
-    if (i > 0) await sleep(300);
+    // Longer beat between digits so each one gets its own dramatic moment.
+    if (i > 0) await sleep(1500);
     lockSlot(slots[i].reel, slots[i].final);
   }
-  await sleep(300);
+  // Whole-plate "lock in": blink + glossy shine sweep before any score shows.
+  await sleep(450);
+  plateEl.classList.add("plate-lockedin");
+  await sleep(1200);
+  plateEl.classList.remove("plate-lockedin");
 }
 
 function pulseClassFor(points) {
