@@ -30,8 +30,29 @@
       <p class="tagline">סטטיסטיקות, משתמשים, גלגולים ולוגים</p>
     </header>
 
-    <!-- Stats -->
+    <!-- Messages -->
     <section class="list-panel">
+      <div class="section-header">
+        <h2 class="section-title">הודעות <span id="msgUnreadBadge" class="msg-unread-badge hidden">0</span></h2>
+      </div>
+      <table class="score-table" id="messagesTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>מאת</th>
+            <th>מייל</th>
+            <th>הודעה</th>
+            <th>תאריך</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody id="messagesTbody"></tbody>
+      </table>
+      <p class="empty-msg hidden" id="messagesEmpty">אין הודעות.</p>
+    </section>
+
+    <!-- Stats -->
+    <section class="list-panel" style="margin-top:1.5rem">
       <h2 class="section-title">סטטיסטיקות</h2>
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="stat-value">…</div><div class="stat-label">טוען</div></div>
@@ -111,6 +132,12 @@
       <pre class="log-viewer" id="logViewer">טוען לוגים…</pre>
     </section>
   </main>
+
+  <footer class="site-footer">
+    <nav class="footer-links">
+      <a href="/contact.html" class="footer-link">צרו איתי קשר</a>
+    </nav>
+  </footer>
 
   <script src="nav.js"></script>
   <script src="push.js"></script>
@@ -259,6 +286,85 @@
         }
       }
 
+      // ── Messages ───────────────────────────────────────────────────────────
+
+      function esc(s) {
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      async function loadMessages() {
+        try {
+          const { messages, unread } = await (await fetch("/api/admin/messages")).json();
+          const tbody = document.getElementById("messagesTbody");
+          const empty = document.getElementById("messagesEmpty");
+          const badge = document.getElementById("msgUnreadBadge");
+          badge.textContent = unread;
+          badge.classList.toggle("hidden", !unread);
+          tbody.innerHTML = "";
+          if (!messages.length) { empty.classList.remove("hidden"); return; }
+          empty.classList.add("hidden");
+          for (const m of messages) {
+            const date = new Date(m.created_at.replace(" ", "T") + "Z").toLocaleString("he-IL");
+            const tr = document.createElement("tr");
+            tr.className = m.is_read ? "msg-read" : "msg-unread";
+            tr.innerHTML = `
+              <td class="mono">${m.id}</td>
+              <td>${m.username ? esc(m.username) : "אנונימי"}</td>
+              <td class="mono" style="font-size:0.8rem">${m.email ? esc(m.email) : "—"}</td>
+              <td><button class="admin-btn msg-toggle-btn" data-id="${m.id}">הצג הודעה ▾</button></td>
+              <td style="font-size:0.8rem">${date}</td>
+              <td class="action-cell">
+                <button class="admin-btn toggle-read-btn" data-id="${m.id}" data-is-read="${m.is_read}">
+                  ${m.is_read ? "סמן כלא נקרא" : "סמן כנקרא"}
+                </button>
+                <button class="admin-btn danger-btn delete-msg-btn" data-id="${m.id}">מחק</button>
+              </td>`;
+            tbody.appendChild(tr);
+
+            const detailTr = document.createElement("tr");
+            detailTr.className = "msg-detail hidden";
+            detailTr.innerHTML = `<td colspan="6"><div class="msg-body-cell">${esc(m.body)}</div></td>`;
+            tbody.appendChild(detailTr);
+          }
+        } catch {
+          document.getElementById("messagesEmpty").textContent = "תקלה בטעינת הודעות.";
+          document.getElementById("messagesEmpty").classList.remove("hidden");
+        }
+      }
+
+      document.getElementById("messagesTbody").addEventListener("click", async (e) => {
+        const expandBtn = e.target.closest(".msg-toggle-btn");
+        const toggleBtn = e.target.closest(".toggle-read-btn");
+        const deleteBtn = e.target.closest(".delete-msg-btn");
+
+        if (expandBtn) {
+          const detailTr = expandBtn.closest("tr").nextElementSibling;
+          const open = !detailTr.classList.contains("hidden");
+          detailTr.classList.toggle("hidden", open);
+          expandBtn.textContent = open ? "הצג הודעה ▾" : "הסתר הודעה ▴";
+        }
+
+        if (toggleBtn) {
+          const id = toggleBtn.dataset.id;
+          const isRead = toggleBtn.dataset.isRead === "1";
+          const res = await fetch(`/api/admin/messages/${id}/read`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isRead: !isRead }),
+          });
+          if (!res.ok) { const { error } = await res.json(); alert(error); return; }
+          loadMessages();
+        }
+
+        if (deleteBtn) {
+          const id = deleteBtn.dataset.id;
+          if (!confirm(`למחוק הודעה #${id}?`)) return;
+          const res = await fetch(`/api/admin/messages/${id}`, { method: "DELETE" });
+          if (!res.ok) { const { error } = await res.json(); alert(error); return; }
+          loadMessages();
+        }
+      });
+
       // ── Event delegation ───────────────────────────────────────────────────
 
       document.getElementById("usersTbody").addEventListener("click", async (e) => {
@@ -330,7 +436,7 @@
 
       // ── Initial load ───────────────────────────────────────────────────────
 
-      await Promise.all([loadStats(), loadUsers(), loadRolls(), loadLogs()]);
+      await Promise.all([loadMessages(), loadStats(), loadUsers(), loadRolls(), loadLogs()]);
 
       setInterval(loadLogs, 10_000);
     })();

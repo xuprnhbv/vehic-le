@@ -82,6 +82,36 @@ router.delete("/rolls/:id", (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get("/messages", (req, res, next) => {
+  try {
+    const messages = db.getMessages(200);
+    const unread = db.countUnreadMessages();
+    res.json({ messages, unread });
+  } catch (err) { next(err); }
+});
+
+router.patch("/messages/:id/read", (req, res, next) => {
+  try {
+    const messageId = Number(req.params.id);
+    if (!Number.isInteger(messageId) || messageId <= 0) {
+      return res.status(400).json({ error: "מזהה הודעה לא תקין" });
+    }
+    db.setMessageRead(messageId, Boolean(req.body.isRead));
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+router.delete("/messages/:id", (req, res, next) => {
+  try {
+    const messageId = Number(req.params.id);
+    if (!Number.isInteger(messageId) || messageId <= 0) {
+      return res.status(400).json({ error: "מזהה הודעה לא תקין" });
+    }
+    db.deleteMessage(messageId);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 router.get("/logs", (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 200, 500);
   res.json({ logs: getLogs(limit) });
