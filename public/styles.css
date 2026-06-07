@@ -1164,6 +1164,12 @@ dd {
    width and scroll inside .list-panel instead of widening the page. */
 .score-table { min-width: max-content; }
 
+/* ...but the expanded detail row spans every column, so its content (e.g. a
+   long row of plate-perk chips) must NOT drive that max-content width — that
+   would balloon the whole table. Capping the cell to the table's own width
+   lets the breakdown wrap its perks onto the next line instead. */
+.roll-detail td { max-width: 0; width: 100%; }
+
 /* ------- Tablet / large phone ------- */
 @media (max-width: 640px) {
   .app { padding: 1.25rem 0.85rem 3rem; }
