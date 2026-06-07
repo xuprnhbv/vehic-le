@@ -18,6 +18,7 @@
         location.reload();
       });
     });
+    window.dispatchEvent(new CustomEvent("auth:loggedIn"));
   }
 
   function renderLoggedOut() {
@@ -25,6 +26,7 @@
     if (adminLink)   adminLink.classList.add("hidden");
     if (authArea)    authArea.innerHTML =
       `<button type="button" class="login-trigger" onclick="location.href='/'">התחבר / הרשם</button>`;
+    window.dispatchEvent(new CustomEvent("auth:loggedOut"));
   }
 
   authChannel.onmessage = ({ data }) => {

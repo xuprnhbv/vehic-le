@@ -45,6 +45,18 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_rolls_user ON rolls(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_rolls_score ON rolls(score DESC);
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint           TEXT NOT NULL UNIQUE,
+    p256dh             TEXT NOT NULL,
+    auth               TEXT NOT NULL,
+    last_notified_date TEXT,                                   -- UTC date string of last reminder sent
+    created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
 `);
 
 // Additive migration: add is_admin column if this is an existing database.
@@ -218,6 +230,56 @@ function getLeaderboard(limit = 50, period = 'today') {
     .all(limit);
 }
 
+// ── Push subscriptions (daily roll reminders) ─────────────────────────────────
+
+// Upsert by endpoint: a browser hands back the same endpoint when re-subscribing,
+// and a shared device can change owner, so we key on the endpoint and refresh the
+// owner/keys. last_notified_date is left untouched on update.
+function saveSubscription(userId, sub) {
+  db.prepare(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET
+       user_id = excluded.user_id,
+       p256dh  = excluded.p256dh,
+       auth    = excluded.auth`
+  ).run(userId, sub.endpoint, sub.keys.p256dh, sub.keys.auth);
+}
+
+function deleteSubscription(endpoint) {
+  db.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
+}
+
+function deleteSubscriptionById(id) {
+  db.prepare(`DELETE FROM push_subscriptions WHERE id = ?`).run(id);
+}
+
+// Subscriptions whose owner has not rolled today and who haven't already been
+// reminded today. Dates use UTC date('now') — at the 09:00 Israel send time the
+// UTC calendar date matches Israel's, staying consistent with the roll daily-limit.
+function getSubscriptionsToRemind() {
+  return db
+    .prepare(
+      `SELECT s.id, s.endpoint, s.p256dh, s.auth
+       FROM push_subscriptions s
+       WHERE NOT EXISTS (
+               SELECT 1 FROM rolls r
+               WHERE r.user_id = s.user_id AND date(r.created_at) = date('now'))
+         AND (s.last_notified_date IS NULL OR s.last_notified_date <> date('now'))`
+    )
+    .all();
+}
+
+function markSubscriptionNotified(id) {
+  db.prepare(`UPDATE push_subscriptions SET last_notified_date = date('now') WHERE id = ?`).run(id);
+}
+
+function getUserSubscriptions(userId) {
+  return db
+    .prepare(`SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`)
+    .all(userId);
+}
+
 // ── Admin helpers ─────────────────────────────────────────────────────────────
 
 function getAdminStats() {
@@ -327,6 +389,12 @@ module.exports = {
   getUserHistory,
   getUserTotalScore,
   getLeaderboard,
+  saveSubscription,
+  deleteSubscription,
+  deleteSubscriptionById,
+  getSubscriptionsToRemind,
+  markSubscriptionNotified,
+  getUserSubscriptions,
   getAdminStats,
   getAllUsers,
   searchUsers,

@@ -13,6 +13,7 @@ const { insertRoll, hasRolledToday, getTodayRank } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
 const admin = require("./admin");
+const push = require("./push");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ app.use((req, _res, next) => {
 app.use("/api/auth", auth.router);
 app.use("/api", rolls.router);
 app.use("/api/admin", admin.router);
+app.use("/api/push", push.router);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
@@ -89,4 +91,5 @@ app.use((err, req, res, next) => {
 });
 
 startRefreshTimer();
+push.startReminderTimer();
 app.listen(PORT, () => console.log(`[server] listening on http://localhost:${PORT}`));
