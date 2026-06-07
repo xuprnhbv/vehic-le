@@ -113,7 +113,6 @@ header h1 {
 
 .slot-window.slot-locked {
   animation: slot-lock-flash 0.45s ease;
-  overflow: visible;
 }
 
 @keyframes slot-lock-flash {
