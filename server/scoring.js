@@ -649,6 +649,31 @@ const PLATE_PERKS = [
       return true;
     },
   },
+
+  // ── Special / themed ─────────────────────────────────────────────────────────
+  {
+    // Contains an Israeli intelligence/cyber unit code (7149 or 8200). Two specific
+    // 4-digit substrings ≈ twice as likely as a single one (cf. contains1337).
+    id: "cyber",
+    name: "סייבר",
+    pts: 10,
+    check: (d) => d.includes("7149") || d.includes("8200"),
+  },
+  {
+    // Outer 3+3 digits (8-digit plates only) sum to exactly 1000: 999 combos out of
+    // 10^6 for the outer digits (~0.1%), middle two digits free.
+    id: "thousand",
+    name: "רכב אלף",
+    pts: 12,
+    check: (d) => d.length === 8 && Number(d.slice(0, 3)) + Number(d.slice(5)) === 1000,
+  },
+  {
+    // One exact plate (697-56-301). ~1-in-10^8 — the rarest perk; lands S on its own.
+    id: "chosen",
+    name: "הרכב הנבחר",
+    pts: 100,
+    check: (d) => d === "69756301",
+  },
 ];
 
 function scorePlate(digits) {
