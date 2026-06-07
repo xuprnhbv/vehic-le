@@ -112,13 +112,55 @@ header h1 {
 }
 
 .slot-window.slot-locked {
-  animation: slot-lock-flash 0.45s ease;
+  /* Bouncy, glowing "lock-in" — overshoot + wobble + glow burst. */
+  animation: slot-lock-flash 0.9s cubic-bezier(0.18, 1.4, 0.4, 1) both;
 }
 
 @keyframes slot-lock-flash {
-  0%   { filter: none; }
-  25%  { filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.95)) brightness(1.6); }
-  100% { filter: none; }
+  0%   { filter: none;                                                              transform: scale(1)    rotate(0deg); }
+  18%  { filter: drop-shadow(0 0 20px rgba(251, 191, 36, 1))    brightness(2.1);    transform: scale(1.38) rotate(-5deg); }
+  40%  { filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.85)) brightness(1.5);    transform: scale(0.86) rotate(4deg); }
+  62%  { filter: drop-shadow(0 0 9px  rgba(251, 191, 36, 0.6))  brightness(1.25);   transform: scale(1.12) rotate(-2deg); }
+  82%  { filter: drop-shadow(0 0 5px  rgba(251, 191, 36, 0.35)) brightness(1.08);   transform: scale(0.97) rotate(1deg); }
+  100% { filter: none;                                                              transform: scale(1)    rotate(0deg); }
+}
+
+/* ---- Whole-plate "lock in" finale: blink + glossy shine sweep ---- */
+.plate.plate-lockedin {
+  position: relative;
+  overflow: hidden;
+  animation: plate-lockin 1.2s ease both;
+}
+
+@keyframes plate-lockin {
+  0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);       filter: brightness(1); }
+  12%  { box-shadow: 0 0 32px 7px rgba(251, 191, 36, 0.95); filter: brightness(1.55); }
+  26%  { box-shadow: 0 0 3px 0 rgba(251, 191, 36, 0.2);    filter: brightness(0.9); }
+  42%  { box-shadow: 0 0 32px 7px rgba(251, 191, 36, 0.95); filter: brightness(1.55); }
+  58%  { box-shadow: 0 0 4px 0 rgba(251, 191, 36, 0.25);   filter: brightness(0.95); }
+  74%  { box-shadow: 0 0 26px 5px rgba(251, 191, 36, 0.85); filter: brightness(1.35); }
+  100% { box-shadow: 0 0 12px 2px rgba(251, 191, 36, 0.45); filter: brightness(1); }
+}
+
+.plate.plate-lockedin::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, transparent 100%);
+  transform: translateX(-200%) skewX(-18deg);
+  animation: plate-shine 1.2s ease-out both;
+  pointer-events: none;
+}
+
+@keyframes plate-shine {
+  0%   { transform: translateX(-200%) skewX(-18deg); opacity: 0; }
+  10%  { opacity: 1; }
+  55%  { transform: translateX(340%) skewX(-18deg); opacity: 1; }
+  60%  { opacity: 0; }
+  100% { transform: translateX(340%) skewX(-18deg); opacity: 0; }
 }
 
 .roll-btn {
