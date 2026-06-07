@@ -102,6 +102,20 @@
       return dl;
     }
 
+    function buildBestScorePanel(row) {
+      const bestScore = row.bestScore ?? row.score;
+      const panel = document.createElement("div");
+      panel.className = "best-score-panel";
+      const label = document.createElement("span");
+      label.className = "best-score-label";
+      label.textContent = "ניקוד הגלגול המוביל";
+      const value = document.createElement("span");
+      value.className = "best-score-value";
+      value.textContent = bestScore;
+      panel.append(label, value);
+      return panel;
+    }
+
     const tbody = document.querySelector("#board tbody");
     const emptyMsg = document.getElementById("emptyMsg");
     const board = document.getElementById("board");
@@ -196,12 +210,16 @@
 
           tbody.appendChild(tr);
 
-          if (row.payload) {
+          const detailContent = isToday
+            ? (row.payload ? buildBreakdownDl(row.payload) : null)
+            : buildBestScorePanel(row);
+
+          if (detailContent) {
             const detailTr = document.createElement("tr");
             detailTr.className = "roll-detail hidden";
             const td = document.createElement("td");
             td.colSpan = isToday ? 6 : 5;
-            td.appendChild(buildBreakdownDl(row.payload));
+            td.appendChild(detailContent);
             detailTr.appendChild(td);
             tbody.appendChild(detailTr);
             tr.addEventListener("click", () => {
