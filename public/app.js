@@ -190,12 +190,9 @@ async function revealScoring(payload) {
       chipsWrap.appendChild(chip);
     });
     const totalPts = payload.platePerks.reduce((s, p) => s + p.pts, 0);
-    const pointsSpan = document.createElement("span");
-    pointsSpan.className = "field-points";
-    pointsSpan.textContent = "+0";
-    dd.append(chipsWrap, pointsSpan);
+    dd.append(chipsWrap);
     resultFields.append(dt, dd);
-    perkRow = { dt, dd, pointsSpan, points: totalPts };
+    perkRow = { dt, dd, points: totalPts };
   }
 
   // Show badge at 0 from the start; accumulate score live
@@ -249,11 +246,7 @@ async function revealScoring(payload) {
     await sleep(80);
     const prevScore = runningScore;
     runningScore += perkRow.points;
-    await Promise.all([
-      countUp(perkRow.pointsSpan, 0, perkRow.points, 400, (v) => `+${v}`),
-      countUp(badge, prevScore, runningScore, 400, (v) => `${v}`),
-    ]);
-    perkRow.pointsSpan.classList.add("pulse-high");
+    await countUp(badge, prevScore, runningScore, 400, (v) => `${v}`);
     applyTierIfChanged(runningScore);
     await sleep(150);
   }
@@ -285,7 +278,6 @@ function showResultInstant(payload) {
   }
 
   if (payload.platePerks?.length > 0) {
-    const totalPts = payload.platePerks.reduce((s, p) => s + p.pts, 0);
     const dt = document.createElement("dt");
     dt.textContent = "בונוס לוחית";
     dt.classList.add("field-revealed");
@@ -299,10 +291,7 @@ function showResultInstant(payload) {
       chip.textContent = `${p.name} +${p.pts}`;
       chipsWrap.appendChild(chip);
     });
-    const pointsSpan = document.createElement("span");
-    pointsSpan.className = "field-points";
-    pointsSpan.textContent = `+${totalPts}`;
-    dd.append(chipsWrap, pointsSpan);
+    dd.append(chipsWrap);
     resultFields.append(dt, dd);
   }
 
