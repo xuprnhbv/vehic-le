@@ -28,6 +28,11 @@ body {
 }
 
 .app {
+  width: 100%;
+  /* min-width:0 stops this flex item (body is a flex column) from shrink-
+     wrapping to its widest content — without it a wide .score-table forces
+     .app past the viewport and the whole page spills sideways. */
+  min-width: 0;
   max-width: 720px;
   margin: 0 auto;
   padding: 2rem 1.25rem 4rem;
