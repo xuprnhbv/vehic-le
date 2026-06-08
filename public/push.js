@@ -135,7 +135,7 @@
       return;
     }
     ensureButton();
-    // auth.js / nav.js emit these once they know the session state.
+    // auth.js / nav.js emit these on live login/logout transitions.
     window.addEventListener("auth:loggedIn", () => {
       loggedIn = true;
       refresh();
@@ -144,6 +144,16 @@
       loggedIn = false;
       refresh();
     });
+    // Don't depend solely on the events above: this init is async (service
+    // worker registration can be slow on navigation), so the page's initial
+    // auth:loggedIn may fire before we subscribe and get missed. Determine the
+    // current session state ourselves so the bell shows on every page load.
+    try {
+      const { user } = await (await fetch("/api/auth/me")).json();
+      loggedIn = Boolean(user);
+    } catch {
+      /* leave loggedIn as-is; events can still correct it later */
+    }
     refresh();
   }
 
