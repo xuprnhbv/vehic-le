@@ -49,6 +49,11 @@
         <tbody id="messagesTbody"></tbody>
       </table>
       <p class="empty-msg hidden" id="messagesEmpty">אין הודעות.</p>
+      <div class="pagination hidden" id="messagesPager">
+        <button class="admin-btn pager-prev">‹ הקודם</button>
+        <span class="pager-info"></span>
+        <button class="admin-btn pager-next">הבא ›</button>
+      </div>
     </section>
 
     <!-- Stats -->
@@ -81,6 +86,11 @@
         <tbody id="usersTbody"></tbody>
       </table>
       <p class="empty-msg hidden" id="usersEmpty">לא נמצאו משתמשים.</p>
+      <div class="pagination hidden" id="usersPager">
+        <button class="admin-btn pager-prev">‹ הקודם</button>
+        <span class="pager-info"></span>
+        <button class="admin-btn pager-next">הבא ›</button>
+      </div>
     </section>
 
     <!-- Rolls -->
@@ -114,6 +124,11 @@
         <tbody id="rollsTbody"></tbody>
       </table>
       <p class="empty-msg hidden" id="rollsEmpty">אין גלגולים.</p>
+      <div class="pagination hidden" id="rollsPager">
+        <button class="admin-btn pager-prev">‹ הקודם</button>
+        <span class="pager-info"></span>
+        <button class="admin-btn pager-next">הבא ›</button>
+      </div>
     </section>
 
     <!-- Logs -->
@@ -155,6 +170,41 @@
         return;
       }
 
+      // ── Pagination (client-side, 20 rows per page) ─────────────────────────
+
+      const PAGE_SIZE = 20;
+      const pager = {
+        messages: { data: [], page: 0 },
+        users:    { data: [], page: 0 },
+        rolls:    { data: [], page: 0 },
+      };
+
+      function pageSlice(key) {
+        const s = pager[key];
+        return s.data.slice(s.page * PAGE_SIZE, s.page * PAGE_SIZE + PAGE_SIZE);
+      }
+
+      function renderPager(key) {
+        const s = pager[key];
+        const totalPages = Math.max(1, Math.ceil(s.data.length / PAGE_SIZE));
+        if (s.page > totalPages - 1) s.page = totalPages - 1;
+        if (s.page < 0) s.page = 0;
+        const el = document.getElementById(key + "Pager");
+        if (s.data.length <= PAGE_SIZE) { el.classList.add("hidden"); return; }
+        el.classList.remove("hidden");
+        el.querySelector(".pager-info").textContent = `עמוד ${s.page + 1} מתוך ${totalPages}`;
+        el.querySelector(".pager-prev").disabled = s.page === 0;
+        el.querySelector(".pager-next").disabled = s.page >= totalPages - 1;
+      }
+
+      const renderers = {}; // populated below with renderMessages/renderUsers/renderRolls
+
+      for (const key of ["messages", "users", "rolls"]) {
+        const el = document.getElementById(key + "Pager");
+        el.querySelector(".pager-prev").addEventListener("click", () => { pager[key].page--; renderers[key](); });
+        el.querySelector(".pager-next").addEventListener("click", () => { pager[key].page++; renderers[key](); });
+      }
+
       // ── Stats ──────────────────────────────────────────────────────────────
 
       async function loadStats() {
@@ -193,12 +243,22 @@
         try {
           const url = q ? `/api/admin/users?q=${encodeURIComponent(q)}` : "/api/admin/users";
           const { users } = await (await fetch(url)).json();
+          pager.users.data = users;
+          pager.users.page = 0;
+          renderUsers();
+        } catch {
+          document.getElementById("usersEmpty").textContent = "תקלה בטעינת משתמשים.";
+          document.getElementById("usersEmpty").classList.remove("hidden");
+        }
+      }
+
+      function renderUsers() {
           const tbody  = document.getElementById("usersTbody");
           const empty  = document.getElementById("usersEmpty");
           tbody.innerHTML = "";
-          if (!users.length) { empty.classList.remove("hidden"); return; }
+          if (!pager.users.data.length) { empty.classList.remove("hidden"); renderPager("users"); return; }
           empty.classList.add("hidden");
-          for (const u of users) {
+          for (const u of pageSlice("users")) {
             const date = new Date(u.created_at.replace(" ", "T") + "Z").toLocaleDateString("he-IL");
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -224,11 +284,9 @@
               </td>`;
             tbody.appendChild(tr);
           }
-        } catch {
-          document.getElementById("usersEmpty").textContent = "תקלה בטעינת משתמשים.";
-          document.getElementById("usersEmpty").classList.remove("hidden");
-        }
+          renderPager("users");
       }
+      renderers.users = renderUsers;
 
       // ── Rolls ──────────────────────────────────────────────────────────────
 
@@ -240,16 +298,27 @@
           if (userQ) params.set("user", userQ);
           if (tierQ) params.set("tier", tierQ);
           const { rolls } = await (await fetch(`/api/admin/rolls?${params}`)).json();
+          pager.rolls.data = rolls;
+          pager.rolls.page = 0;
+          renderRolls();
+        } catch {
+          document.getElementById("rollsEmpty").textContent = "תקלה בטעינת גלגולים.";
+          document.getElementById("rollsEmpty").classList.remove("hidden");
+        }
+      }
+
+      function renderRolls() {
           const tbody = document.getElementById("rollsTbody");
           const empty = document.getElementById("rollsEmpty");
           tbody.innerHTML = "";
-          if (!rolls.length) { empty.classList.remove("hidden"); return; }
+          if (!pager.rolls.data.length) { empty.classList.remove("hidden"); renderPager("rolls"); return; }
           empty.classList.add("hidden");
-          rolls.forEach((r, i) => {
+          const offset = pager.rolls.page * PAGE_SIZE;
+          pageSlice("rolls").forEach((r, i) => {
             const date = new Date(r.created_at.replace(" ", "T") + "Z").toLocaleString("he-IL");
             const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${i + 1}</td>
+              <td>${offset + i + 1}</td>
               <td>${r.username}</td>
               <td class="mono">${r.plate_display}</td>
               <td><span class="tier-pill tier-${r.tier.toLowerCase()}">${r.tier}</span></td>
@@ -260,11 +329,9 @@
               </td>`;
             tbody.appendChild(tr);
           });
-        } catch {
-          document.getElementById("rollsEmpty").textContent = "תקלה בטעינת גלגולים.";
-          document.getElementById("rollsEmpty").classList.remove("hidden");
-        }
+          renderPager("rolls");
       }
+      renderers.rolls = renderRolls;
 
       // ── Logs ───────────────────────────────────────────────────────────────
 
@@ -295,15 +362,24 @@
       async function loadMessages() {
         try {
           const { messages, unread } = await (await fetch("/api/admin/messages")).json();
-          const tbody = document.getElementById("messagesTbody");
-          const empty = document.getElementById("messagesEmpty");
           const badge = document.getElementById("msgUnreadBadge");
           badge.textContent = unread;
           badge.classList.toggle("hidden", !unread);
+          pager.messages.data = messages;
+          renderMessages();
+        } catch {
+          document.getElementById("messagesEmpty").textContent = "תקלה בטעינת הודעות.";
+          document.getElementById("messagesEmpty").classList.remove("hidden");
+        }
+      }
+
+      function renderMessages() {
+          const tbody = document.getElementById("messagesTbody");
+          const empty = document.getElementById("messagesEmpty");
           tbody.innerHTML = "";
-          if (!messages.length) { empty.classList.remove("hidden"); return; }
+          if (!pager.messages.data.length) { empty.classList.remove("hidden"); renderPager("messages"); return; }
           empty.classList.add("hidden");
-          for (const m of messages) {
+          for (const m of pageSlice("messages")) {
             const date = new Date(m.created_at.replace(" ", "T") + "Z").toLocaleString("he-IL");
             const tr = document.createElement("tr");
             tr.className = m.is_read ? "msg-read" : "msg-unread";
@@ -326,11 +402,9 @@
             detailTr.innerHTML = `<td colspan="6"><div class="msg-body-cell">${esc(m.body)}</div></td>`;
             tbody.appendChild(detailTr);
           }
-        } catch {
-          document.getElementById("messagesEmpty").textContent = "תקלה בטעינת הודעות.";
-          document.getElementById("messagesEmpty").classList.remove("hidden");
-        }
+          renderPager("messages");
       }
+      renderers.messages = renderMessages;
 
       document.getElementById("messagesTbody").addEventListener("click", async (e) => {
         const expandBtn = e.target.closest(".msg-toggle-btn");
