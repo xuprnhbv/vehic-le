@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · דרג את הרכב שלי</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn">גלגול</a>
+          <a href="/rate.html" class="nav-btn nav-active">דרג את הרכב שלי</a>
+          <a href="/leaderboard.html" class="nav-btn">טבלת מובילים</a>
+          <a id="historyLink" href="/history.html" class="nav-btn hidden">היסטוריה</a>
+          <a id="adminLink" href="/admin.html" class="nav-btn hidden">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <header>
+      <h1>דרג את הרכב שלי</h1>
+      <p class="tagline">הזן את מספר הרכב שלך וגלה כמה הוא נדיר</p>
+    </header>
+
+    <section class="stage">
+      <form id="rateForm" class="auth-form rate-form">
+        <label>מספר רכב
+          <input type="text" id="plateInput" name="plate" inputmode="numeric"
+                 autocomplete="off" placeholder="לדוגמה: 12345678" maxlength="8" required />
+        </label>
+        <button id="rateBtn" type="submit" class="roll-btn">דרג!</button>
+        <div class="form-msg" id="rateMsg"></div>
+      </form>
+    </section>
+
+    <section id="result" class="result hidden">
+      <h2>פרטי הרכב</h2>
+      <dl id="resultFields"></dl>
+      <div class="result-actions">
+        <button id="shareBtn" class="share-btn hidden" type="button">שתף תוצאה</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <nav class="footer-links">
+      <a href="/contact.html" class="footer-link">צרו איתי קשר</a>
+    </nav>
+  </footer>
+
+  <script src="nav.js"></script>
+  <script src="push.js"></script>
+  <script src="reveal.js"></script>
+  <script src="rate.js"></script>
+</body>
+</html>

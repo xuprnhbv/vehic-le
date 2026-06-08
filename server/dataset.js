@@ -41,6 +41,18 @@ async function fetchRecordAt(offset) {
   return json?.result?.records?.[0] ?? null;
 }
 
+// Look up a single record by its plate number (mispar_rechev). Unlike rollRecord
+// this is NOT random — it's the manual "rate my plate" path. Returns null when no
+// vehicle matches (e.g. the plate is in a different dataset, or doesn't exist).
+async function fetchRecordByPlate(plate) {
+  const filters = encodeURIComponent(JSON.stringify({ mispar_rechev: plate }));
+  const url = `${API}?resource_id=${RESOURCE_ID}&limit=1&filters=${filters}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  return json?.result?.records?.[0] ?? null;
+}
+
 async function rollRecord() {
   // Lazily populate the cache if the startup refresh hasn't landed yet.
   if (cachedTotal === null) await refreshTotal();
@@ -51,4 +63,4 @@ async function rollRecord() {
   return record;
 }
 
-module.exports = { startRefreshTimer, rollRecord };
+module.exports = { startRefreshTimer, rollRecord, fetchRecordByPlate };

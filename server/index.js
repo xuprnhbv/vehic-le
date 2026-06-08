@@ -7,7 +7,7 @@ const session = require("express-session");
 const SqliteStore = require("./session-store")(session);
 const passport = require("passport");
 
-const { startRefreshTimer, rollRecord } = require("./dataset");
+const { startRefreshTimer, rollRecord, fetchRecordByPlate } = require("./dataset");
 const { buildRollPayload } = require("./scoring");
 const { insertRoll, hasRolledToday, getTodayRank, createMessage } = require("./db");
 const auth = require("./auth");
@@ -123,6 +123,42 @@ app.get("/api/roll", async (req, res) => {
   } catch (err) {
     console.error(`[roll] failed: ${err.message}`);
     res.status(502).json({ error: "roll failed" });
+  }
+});
+
+// "Rate my plate": look up a specific plate the user typed and score it with the
+// exact same scoring as a roll. This is read-only — it NEVER writes to `rolls`
+// (saving stays exclusive to /api/roll's random, authoritative payload), so a
+// manual lookup can't be ranked. A tiny per-IP limiter slows scraping of the
+// external registry.
+const rateHits = new Map();
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+const RATE_MAX = 30;
+
+app.get("/api/rate", async (req, res) => {
+  const now = Date.now();
+  const entry = rateHits.get(req.ip);
+  if (!entry || now > entry.reset) {
+    rateHits.set(req.ip, { count: 1, reset: now + RATE_WINDOW_MS });
+  } else if (entry.count >= RATE_MAX) {
+    return res.status(429).json({ error: "יותר מדי בקשות, נסו שוב מאוחר יותר" });
+  } else {
+    entry.count++;
+  }
+
+  const digits = String(req.query.plate || "").replace(/\D/g, "");
+  if (digits.length < 5 || digits.length > 8) {
+    return res.status(400).json({ error: "מספר רכב לא תקין" });
+  }
+  try {
+    const record = await fetchRecordByPlate(digits);
+    if (!record) {
+      return res.status(404).json({ error: "הרכב לא נמצא במאגר הרכבים" });
+    }
+    res.json(buildRollPayload(record));
+  } catch (err) {
+    console.error(`[rate] failed: ${err.message}`);
+    res.status(502).json({ error: "rate failed" });
   }
 });
 
