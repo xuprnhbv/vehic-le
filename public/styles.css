@@ -937,6 +937,31 @@ dd {
   padding: 1.5rem 0;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.85rem;
+}
+
+.pager-info {
+  color: var(--muted);
+  font-size: 0.85rem;
+  min-width: 7rem;
+  text-align: center;
+}
+
+.pagination .admin-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pagination .admin-btn:disabled:hover {
+  border-color: var(--border);
+  background: transparent;
+}
+
 .tier-pill {
   display: inline-block;
   min-width: 1.6em;
