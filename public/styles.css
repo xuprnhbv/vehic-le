@@ -479,8 +479,10 @@ dd {
 }
 
 .perk-chip {
-  display: inline-block;
-  padding: 0.2rem 0.6rem;
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
   border-radius: 999px;
   font-family: inherit;
   font-size: 0.8rem;
@@ -493,6 +495,24 @@ dd {
   transform: scale(0.5);
   transition: none;
   cursor: pointer;
+}
+
+/* Gold body: the perk name. */
+.perk-chip-name {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+}
+
+/* Dark capsule fused to the leading edge: the score, clearly set apart. */
+.perk-chip-pts {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  background: #1c1917;
+  color: #fde047;
+  font-variant-numeric: tabular-nums;
+  border-inline-start: 1px solid rgba(253, 224, 71, 0.45);
 }
 
 .perk-chip:hover { filter: brightness(1.06); }
