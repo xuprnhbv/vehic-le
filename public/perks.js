@@ -102,7 +102,13 @@ window.Perks = (function () {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "perk-chip" + (pop ? " perk-chip-pop" : "");
-    chip.textContent = `${name} +${pts}`;
+    const nameEl = document.createElement("span");
+    nameEl.className = "perk-chip-name";
+    nameEl.textContent = name;
+    const ptsEl = document.createElement("span");
+    ptsEl.className = "perk-chip-pts";
+    ptsEl.textContent = `+${pts}`;
+    chip.append(nameEl, ptsEl);
     chip.addEventListener("click", (e) => {
       e.stopPropagation();
       toggle(chip, name);
