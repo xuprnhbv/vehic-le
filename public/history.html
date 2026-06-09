@@ -47,6 +47,7 @@
     </section>
   </main>
 
+  <script src="perks.js"></script>
   <script>
     function pulseClassFor(points) {
       if (points >= 20) return "pulse-high";
@@ -120,10 +121,7 @@
               const chips = document.createElement("span");
               chips.className = "field-value perk-chips";
               row.payload.platePerks.forEach((p) => {
-                const chip = document.createElement("span");
-                chip.className = "perk-chip perk-chip-pop";
-                chip.textContent = `${p.name} +${p.pts}`;
-                chips.appendChild(chip);
+                chips.appendChild(Perks.createChip(p.name, p.pts, { pop: true }));
               });
               const totalPts = row.payload.platePerks.reduce((s, p) => s + p.pts, 0);
               const pts = document.createElement("span");
