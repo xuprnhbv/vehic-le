@@ -28,11 +28,12 @@ server/
   session-store.js  custom express-session store backed by the same node:sqlite db
   auth.js        passport (local + Google) strategies and /api/auth/* routes
   mailer.js      nodemailer SMTP verification email; falls back to console log in dev
-  rolls.js       GET /api/me/history and GET /api/leaderboard (read-only)
+  rolls.js       GET /api/me/history, /api/leaderboard, /api/perks (read-only)
 public/          static client, served as-is
   index.html     roll page + login/register modal (Hebrew, RTL)
   styles.css     all styles: slot-reel/count-up animations + auth/table UI
   app.js         roll animation only — fetches /api/roll and plays it back
+  perks.js       shared perk-chip factory + tap-to-show description popover (uses /api/perks)
   auth.js        auth header, modal tabs, verification/OAuth redirect notices
   history.html   logged-in user's saved rolls, newest first
   leaderboard.html  global top-50 rolls, sorted by score desc

@@ -482,14 +482,57 @@ dd {
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
+  font-family: inherit;
   font-size: 0.8rem;
   font-weight: 700;
+  line-height: normal;
   background: linear-gradient(135deg, #fde047, #f59e0b);
   color: #1c1917;
   border: 1px solid rgba(253, 224, 71, 0.6);
   opacity: 0;
   transform: scale(0.5);
   transition: none;
+  cursor: pointer;
+}
+
+.perk-chip:hover { filter: brightness(1.06); }
+.perk-chip:focus-visible { outline: 2px solid #fde047; outline-offset: 2px; }
+.perk-chip.perk-chip-active { box-shadow: 0 0 0 2px rgba(253, 224, 71, 0.9); }
+
+.perk-popover {
+  position: fixed;
+  z-index: 1000;
+  max-width: 16rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.6rem;
+  background: #1c1917;
+  color: #f5f5f4;
+  border: 1px solid rgba(253, 224, 71, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  text-align: right;
+  direction: rtl;
+  line-height: 1.35;
+  animation: perk-popover-in 0.15s ease-out;
+}
+
+.perk-popover.hidden { display: none; }
+
+.perk-popover-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #fde047;
+  margin-bottom: 0.2rem;
+}
+
+.perk-popover-desc {
+  display: block;
+  font-size: 0.8rem;
+}
+
+@keyframes perk-popover-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .perk-chip.perk-chip-pop {

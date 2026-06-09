@@ -87,10 +87,7 @@ window.Reveal = (function () {
       const chipsWrap = document.createElement("span");
       chipsWrap.className = "field-value perk-chips";
       payload.platePerks.forEach((p) => {
-        const chip = document.createElement("span");
-        chip.className = "perk-chip";
-        chip.textContent = `${p.name} +${p.pts}`;
-        chipsWrap.appendChild(chip);
+        chipsWrap.appendChild(Perks.createChip(p.name, p.pts));
       });
       const totalPts = payload.platePerks.reduce((s, p) => s + p.pts, 0);
       dd.append(chipsWrap);
@@ -189,10 +186,7 @@ window.Reveal = (function () {
       const chipsWrap = document.createElement("span");
       chipsWrap.className = "field-value perk-chips";
       payload.platePerks.forEach((p) => {
-        const chip = document.createElement("span");
-        chip.className = "perk-chip perk-chip-pop";
-        chip.textContent = `${p.name} +${p.pts}`;
-        chipsWrap.appendChild(chip);
+        chipsWrap.appendChild(Perks.createChip(p.name, p.pts, { pop: true }));
       });
       dd.append(chipsWrap);
       resultFields.append(dt, dd);

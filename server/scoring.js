@@ -331,18 +331,21 @@ const PLATE_PERKS = [
   {
     id: "monodigit",
     name: "ספרה בודדה",
+    desc: "כל ספרות הלוחית זהות",
     pts: 40,
     check: (d) => new Set(d).size === 1,
   },
   {
     id: "palindrome",
     name: "פלינדרום",
+    desc: "הלוחית נקראת אותו דבר משני הכיוונים",
     pts: 22,
     check: (d) => d === d.split("").reverse().join("") && new Set(d).size > 1,
   },
   {
     id: "sequence",
     name: "סדרה מושלמת",
+    desc: "כל הספרות ברצף עולה או יורד של 1",
     pts: 18,
     check: (d) => {
       const step = Number(d[1]) - Number(d[0]);
@@ -354,42 +357,49 @@ const PLATE_PERKS = [
   {
     id: "triplerun",
     name: "שלשה ברצף",
+    desc: "שלוש ספרות זהות ברצף",
     pts: 8,
     check: (d) => /(.)\1\1/.test(d),
   },
   {
     id: "triple777",
     name: "777",
+    desc: "הרצף 777 מופיע בלוחית",
     pts: 7,
     check: (d) => d.includes("777"),
   },
   {
     id: "triple888",
     name: "888",
+    desc: "הרצף 888 מופיע בלוחית",
     pts: 7,
     check: (d) => d.includes("888"),
   },
   {
     id: "allunique",
     name: "ללא מספרים חוזרים",
+    desc: "כל הספרות שונות זו מזו",
     pts: 6,
     check: (d) => new Set(d).size === d.length,
   },
   {
     id: "prime",
     name: "ראשוני",
+    desc: "מספר הלוחית הוא מספר ראשוני",
     pts: 5,
     check: (d) => isPrime(Number(d)),
   },
   {
     id: "round",
     name: "עגול",
+    desc: "הלוחית מסתיימת ב-000",
     pts: 5,
     check: (d) => d.endsWith("000"),
   },
   {
     id: "lucky7sum",
     name: "סכום מתחלק בשבע",
+    desc: "סכום ספרות הלוחית מתחלק ב-7",
     pts: 4,
     check: (d) => d.split("").reduce((s, c) => s + Number(c), 0) % 7 === 0,
   },
@@ -398,48 +408,56 @@ const PLATE_PERKS = [
   {
     id: "onlyeven",
     name: "רק ספרות זוגיות",
+    desc: "כל הספרות זוגיות (0,2,4,6,8)",
     pts: 10,
     check: (d) => isAllIn(d, "02468"),
   },
   {
     id: "onlyodd",
     name: "רק ספרות אי-זוגיות",
+    desc: "כל הספרות אי-זוגיות (1,3,5,7,9)",
     pts: 10,
     check: (d) => isAllIn(d, "13579"),
   },
   {
     id: "nozero",
     name: "בלי אפסים",
+    desc: "אין אף ספרת אפס בלוחית",
     pts: 2,
     check: (d) => !d.includes("0"),
   },
   {
     id: "twodig",
     name: "שתי ספרות שונות",
+    desc: "הלוחית מורכבת משתי ספרות שונות בלבד",
     pts: 14,
     check: (d) => new Set(d).size === 2,
   },
   {
     id: "threedig",
     name: "שלוש ספרות שונות",
+    desc: "הלוחית מורכבת משלוש ספרות שונות בלבד",
     pts: 6,
     check: (d) => new Set(d).size === 3,
   },
   {
     id: "onlyprimes",
     name: "רק ספרות ראשוניות",
+    desc: "כל הספרות ראשוניות (2,3,5,7)",
     pts: 9,
     check: (d) => isAllIn(d, "2357"),
   },
   {
     id: "binary",
     name: "בינארי",
+    desc: "הלוחית מורכבת מהספרות 0 ו-1 בלבד",
     pts: 25,
     check: (d) => isAllIn(d, "01") && new Set(d).size > 1,
   },
   {
     id: "quad7",
     name: "רביעיית שביעיות",
+    desc: "הספרה 7 מופיעה לפחות ארבע פעמים",
     pts: 12,
     check: (d) => (d.match(/7/g) || []).length >= 4,
   },
@@ -448,72 +466,84 @@ const PLATE_PERKS = [
   {
     id: "quadrun",
     name: "רביעיה ברצף",
+    desc: "ארבע ספרות זהות ברצף",
     pts: 18,
     check: (d) => /(.)\1\1\1/.test(d),
   },
   {
     id: "quintrun",
     name: "חמישיה ברצף",
+    desc: "חמש ספרות זהות ברצף",
     pts: 32,
     check: (d) => /(.)\1\1\1\1/.test(d),
   },
   {
     id: "twotriplerun",
     name: "שתי שלשות",
+    desc: "שתי קבוצות נפרדות של שלוש ספרות זהות ברצף",
     pts: 20,
     check: (d) => countRuns(d, 3).length >= 2,
   },
   {
     id: "abab",
     name: "תבנית מתחלפת",
+    desc: "שתי ספרות מתחלפות לסירוגין (א-ב-א-ב)",
     pts: 20,
     check: (d) => isABAB(d),
   },
   {
     id: "threeup",
     name: "שלשה עולה",
+    desc: "שלוש ספרות רצופות העולות ב-1",
     pts: 4,
     check: (d) => hasConsecutiveRun(d, 1),
   },
   {
     id: "threedown",
     name: "שלשה יורדת",
+    desc: "שלוש ספרות רצופות היורדות ב-1",
     pts: 4,
     check: (d) => hasConsecutiveRun(d, -1),
   },
   {
     id: "triple666",
     name: "מספר השטן",
+    desc: "הרצף 666 מופיע בלוחית",
     pts: 7,
     check: (d) => d.includes("666"),
   },
   {
     id: "seq123",
     name: "123",
+    desc: "הרצף 123 מופיע בלוחית",
     pts: 5,
     check: (d) => d.includes("123"),
   },
   {
     id: "seq321",
     name: "321",
+    desc: "הרצף 321 מופיע בלוחית",
     pts: 5,
     check: (d) => d.includes("321"),
   },
   {
     id: "innerzero",
     name: "אפסים מוכלים",
+    desc: "לפחות שני אפסים בתוך הלוחית (לא בקצוות)",
     pts: 6,
     check: (d) => (d.slice(1, -1).match(/0/g) || []).length >= 2,
   },
   {
     id: "quaddigit",
     name: "רביעייה",
+    desc: "אותה ספרה מופיעה לפחות ארבע פעמים",
     pts: 10,
     check: (d) => maxDigitCount(d) >= 4,
   },
   {
     id: "quintdigit",
     name: "חמישייה",
+    desc: "אותה ספרה מופיעה לפחות חמש פעמים",
     pts: 18,
     check: (d) => maxDigitCount(d) >= 5,
   },
@@ -522,66 +552,77 @@ const PLATE_PERKS = [
   {
     id: "mult11",
     name: "מתחלק ב11",
+    desc: "מספר הלוחית מתחלק ב-11",
     pts: 6,
     check: (d) => Number(d) % 11 === 0,
   },
   {
     id: "mult13",
     name: "מתחלק ב13",
+    desc: "מספר הלוחית מתחלק ב-13",
     pts: 7,
     check: (d) => Number(d) % 13 === 0,
   },
   {
     id: "mult100",
     name: "מתחלק ב100",
+    desc: "מספר הלוחית מתחלק ב-100 (אך לא ב-1000)",
     pts: 3,
     check: (d) => d.endsWith("00") && !d.endsWith("000"),
   },
   {
     id: "mult10000",
     name: "מתחלק ב10,000",
+    desc: "מספר הלוחית מתחלק ב-10,000",
     pts: 12,
     check: (d) => Number(d) % 10000 === 0,
   },
   {
     id: "perfectsq",
     name: "ריבוע מושלם",
+    desc: "מספר הלוחית הוא ריבוע מושלם",
     pts: 25,
     check: (d) => isPerfectSquare(Number(d)),
   },
   {
     id: "power2",
     name: "חזקת 2",
+    desc: "מספר הלוחית הוא חזקה של 2",
     pts: 30,
     check: (d) => isPowerOfTwo(Number(d)),
   },
   {
     id: "fibonacci",
     name: "פיבונאצ'י",
+    desc: "מספר הלוחית מופיע בסדרת פיבונאצ'י",
     pts: 28,
     check: (d) => isFib(Number(d)),
   },
   {
     id: "triangular",
     name: "מספר משולש",
+    desc: "מספר הלוחית הוא מספר משולש",
     pts: 15,
     check: (d) => isTriangular(Number(d)),
   },
   {
     id: "gematria18",
     name: "גימטרייה ח\"י",
+    desc: "סכום הספרות הוא 18 (ח״י)",
     pts: 6,
     check: (d) => digitSum(d) === 18,
   },
   {
     id: "gematria36",
     name: "גימטרייה ל\"ו",
+    desc: "סכום הספרות הוא 36 (ל״ו)",
     pts: 7,
     check: (d) => digitSum(d) === 36,
   },
   {
     id: "smallsum",
     name: "סכום קטן מ7",
+    desc: "סכום כל הספרות הוא 7 או פחות",
     pts: 5,
     check: (d) => digitSum(d) <= 7,
   },
@@ -590,30 +631,35 @@ const PLATE_PERKS = [
   {
     id: "contains42",
     name: "42",
+    desc: "הרצף 42 מופיע בלוחית",
     pts: 4,
     check: (d) => d.includes("42"),
   },
   {
     id: "contains1337",
     name: "l33t",
+    desc: "הרצף 1337 מופיע בלוחית (\"leet\")",
     pts: 10,
     check: (d) => d.includes("1337"),
   },
   {
     id: "currentyear",
     name: `שנת ${CURRENT_YEAR}`,
+    desc: "השנה הנוכחית מופיעה בלוחית",
     pts: 8,
     check: (d) => d.includes(String(CURRENT_YEAR)),
   },
   {
     id: "pi314",
     name: "פאי",
+    desc: "הרצף 314 מופיע בלוחית (π)",
     pts: 5,
     check: (d) => d.includes("314"),
   },
   {
     id: "contains911",
     name: "911",
+    desc: "הרצף 911 מופיע בלוחית",
     pts: 5,
     check: (d) => d.includes("911"),
   },
@@ -622,18 +668,21 @@ const PLATE_PERKS = [
   {
     id: "sameedges",
     name: "קצוות זהים",
+    desc: "הספרה הראשונה והאחרונה זהות",
     pts: 5,
     check: (d) => d[0] === d[d.length - 1],
   },
   {
     id: "nearedges",
     name: "קצוות סמוכים",
+    desc: "ההפרש בין הספרה הראשונה והאחרונה הוא 1",
     pts: 3,
     check: (d) => Math.abs(Number(d[0]) - Number(d[d.length - 1])) === 1,
   },
   {
     id: "nondecreasing",
     name: "ספרות עולות",
+    desc: "הספרות ממוינות משמאל לימין בסדר עולה",
     pts: 8,
     check: (d) => {
       for (let i = 1; i < d.length; i++) if (Number(d[i]) < Number(d[i - 1])) return false;
@@ -643,6 +692,7 @@ const PLATE_PERKS = [
   {
     id: "nonincreasing",
     name: "ספרות יורדות",
+    desc: "הספרות ממוינות משמאל לימין בסדר יורד",
     pts: 8,
     check: (d) => {
       for (let i = 1; i < d.length; i++) if (Number(d[i]) > Number(d[i - 1])) return false;
@@ -656,6 +706,7 @@ const PLATE_PERKS = [
     // 4-digit substrings ≈ twice as likely as a single one (cf. contains1337).
     id: "cyber",
     name: "סייבר",
+    desc: "סייבר.",
     pts: 10,
     check: (d) => d.includes("7149") || d.includes("8200"),
   },
@@ -664,6 +715,7 @@ const PLATE_PERKS = [
     // 10^6 for the outer digits (~0.1%), middle two digits free.
     id: "thousand",
     name: "רכב אלף",
+    desc: "שלוש הספרות הראשונות והאחרונות מסתכמות ב-1000",
     pts: 12,
     check: (d) => d.length === 8 && Number(d.slice(0, 3)) + Number(d.slice(5)) === 1000,
   },
@@ -671,6 +723,7 @@ const PLATE_PERKS = [
     // One exact plate (697-56-301). ~1-in-10^8 — the rarest perk; lands S on its own.
     id: "chosen",
     name: "הרכב הנבחר",
+    desc: "הרכב הכי טוב בארץ!!!!!!!!!!!",
     pts: 100,
     check: (d) => d === "69756301",
   },
@@ -738,4 +791,10 @@ function buildRollPayload(record) {
   };
 }
 
-module.exports = { buildRollPayload, scoreRecord, tierFor, formatPlate };
+// User-facing perk explanations. Names + points are already in every payload, so the
+// descriptions add nothing exploitable — they're display text the client looks up by name.
+function getPerkDescriptions() {
+  return PLATE_PERKS.map(({ name, desc }) => ({ name, desc }));
+}
+
+module.exports = { buildRollPayload, scoreRecord, tierFor, formatPlate, getPerkDescriptions };

@@ -5,8 +5,16 @@
 const express = require("express");
 const db = require("./db");
 const { requireAuth } = require("./auth");
+const { getPerkDescriptions } = require("./scoring");
 
 const router = express.Router();
+
+// Perk name → description list, so the client can explain perk chips on tap. Read-only
+// and static for the process lifetime; computed once.
+const PERK_DESCRIPTIONS = getPerkDescriptions();
+router.get("/perks", (_req, res) => {
+  res.json({ perks: PERK_DESCRIPTIONS });
+});
 
 // Today's roll for the current user, if any (full payload so the client can display it).
 router.get("/me/today", requireAuth, (req, res, next) => {
