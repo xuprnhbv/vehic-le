@@ -381,6 +381,20 @@ const PLATE_PERKS = [
     check: (d) => d.includes("888"),
   },
   {
+    id: "sixtyseven",
+    name: "שש שבע!",
+    desc: "מספר לוחית מכיל 67",
+    pts: 6,
+    check: (d) => d.includes("67"),
+  },
+  {
+    id: "sixtynine",
+    name: "נחמד",
+    desc: "מספר לוחית מכיל 69",
+    pts: 6,
+    check: (d) => d.includes("69"),
+  },
+  {
     id: "allunique",
     name: "ללא מספרים חוזרים",
     desc: "כל הספרות שונות זו מזו",
