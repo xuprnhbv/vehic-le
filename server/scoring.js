@@ -247,13 +247,9 @@ const SCORERS = {
     const expiry = Date.parse(value);
     if (Number.isNaN(expiry)) return 1;
     const days = (expiry - Date.now()) / (24 * 60 * 60 * 1000);
-    if (days < 0) {
-      // Expired: deeper expiry = rarer find. -7d=5, -30d=7, -180d=10
-      return clamp(Math.round(5 + Math.log10(Math.abs(days) + 1) * 3), 5, 10);
-    }
-    if (days < 30) return clamp(Math.round(5 - days / 10), 2, 5);
-    // Fresh license: 1pt baseline; vehicles with very long validity nudged up slightly.
-    return clamp(1 + Math.floor(days / 200), 1, 4);
+    // Dataset only contains vehicles with a valid (non-expired) license, so longer
+    // remaining validity is the rarer find — licenses renew for at most 1 year (365 days).
+    return clamp(1 + Math.floor(days / 26), 1, 15);
   },
 };
 
