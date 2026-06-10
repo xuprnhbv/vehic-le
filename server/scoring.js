@@ -13,7 +13,8 @@ const FIELDS = [
 
 // Per-manufacturer points (1-40). Dataset uses Hebrew names; multiple origin
 // suffixes (גרמניה, סין, הונגריה…) mean we match on the brand root only.
-// Scores derived from actual fleet distribution (50k-record sample, May 2026):
+// Scores derived from actual fleet distribution (50k-record sample, May 2026;
+// Chinese/EV newcomers refreshed from a 1M-row survey, Jun 2026):
 //   >10% → 1pt | 5-10% → 2pt | 2-5% → 3-4pt | 1-2% → 5-6pt
 //   0.5-1% → 8pt | 0.2-0.5% → 10-12pt | 0.05-0.2% → 14-18pt | <0.05% → 20-40pt
 const MANUFACTURER_POINTS = {
@@ -25,13 +26,21 @@ const MANUFACTURER_POINTS = {
   // Less common (1–2 %)
   "סיאט": 5, "רנו": 5, "פיאט": 6, "פורד": 6, "דאציה": 7, "אופל": 7,
   // Uncommon (0.5–1 %)
-  "לקסוס": 8, "ב מ וו": 8, "אאודי": 8, "שברולט": 8, "סובארו": 8,
+  // "אודי" (one א) is the survey spelling for Audi-from-Mexico; keep alongside the
+  // canonical "אאודי" so both spellings score the same (both also self-match safely).
+  "לקסוס": 8, "ב מ וו": 8, "אאודי": 8, "אודי": 8, "שברולט": 8, "סובארו": 8,
   "איסוזו": 9, "דייהטסו": 9, "מרוטי": 9,
+  // Chinese newcomers (0.5–1 %) — match on brand root, suffix is origin (סין)
+  "מ.ג": 8, "ג'אק": 8, "גילי": 8,
   // Rare (0.2–0.5 %)
   "פורשה": 11, "וולוו": 11, "דימלר": 10, "קרייזלר": 10,
   "אלפא רומיאו": 12, "סרס": 12, "קופרה": 12, "ביואיק": 13,
+  // Rare EV / Chinese marques (0.1–0.5 %)
+  "אקספנג": 11, "זיקר": 12, "דיפאל": 12, "לינק אנד קו": 13, "סאנגיונג": 13,
   // Very rare (0.05–0.2 %)
   "מיני": 14, "ג'יפ": 14, "לנד רובר": 16, "ריינג' רובר": 17,
+  // Very rare Chinese marques (0.05–0.1 %)
+  "סקיוול": 14, "אורה": 14, "מקסוס": 14,
   "טסלה": 16, "יגואר": 17, "אינפיניטי": 17, "אקורה": 18,
   "ג'נסיס": 18, "אבארת'": 18,
   // Ultra-rare (0.01–0.05 %)
