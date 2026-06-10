@@ -1,0 +1,51 @@
+{
+  "skill_name": "add-perk",
+  "evals": [
+    {
+      "id": 0,
+      "name": "contains-18-substring",
+      "prompt": "add a perk called 'חי' described 'מספר לוחית מכיל 18' for when the plate number contains 18",
+      "expected_output": "One new PLATE_PERKS entry: name 'חי', desc 'מספר לוחית מכיל 18', check (d) => d.includes(\"18\"), points anchored to ~2-digit-substring frequency (≈4-7), unique lowercase English id, scoring.js still loads, no client files touched.",
+      "files": [],
+      "assertions": [
+        { "text": "A new PLATE_PERKS entry exists with name 'חי' and desc 'מספר לוחית מכיל 18', both verbatim", "passed": null, "evidence": "" },
+        { "text": "The check returns true for a plate containing 18 (e.g. '12180000') and false for one without (e.g. '23456790')", "passed": null, "evidence": "" },
+        { "text": "The check is a substring test (d.includes(\"18\") or equivalent), not a numeric coincidence", "passed": null, "evidence": "" },
+        { "text": "Points are in a sane range anchored to ~2-digit-substring rarity (roughly 4-7)", "passed": null, "evidence": "" },
+        { "text": "node -e require('./server/scoring.js') loads without throwing", "passed": null, "evidence": "" },
+        { "text": "The id is unique, short, lowercase English", "passed": null, "evidence": "" },
+        { "text": "No files under public/ were modified", "passed": null, "evidence": "" }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "mirror-halves-length-safe",
+      "prompt": "add a perk 'מראה' described 'חצי ראשון זהה לחצי השני' that applies when the first half of the plate equals the second half (like 1234-1234)",
+      "expected_output": "One new PLATE_PERKS entry: name 'מראה', desc 'חצי ראשון זהה לחצי השני'. check returns true for 8-digit plates whose first 4 digits equal the last 4 (e.g. '12341234'); crucially it must NOT throw on 7-digit plates. High-ish points (rare pattern). scoring.js still loads, no client files touched.",
+      "files": [],
+      "assertions": [
+        { "text": "A new PLATE_PERKS entry exists with name 'מראה' and desc 'חצי ראשון זהה לחצי השני', both verbatim", "passed": null, "evidence": "" },
+        { "text": "The check returns true for '12341234' and false for '12341235'", "passed": null, "evidence": "" },
+        { "text": "The check does NOT throw on a 7-digit plate (e.g. '1234123') — verified by the estimator's throw warning being absent or a direct call", "passed": null, "evidence": "" },
+        { "text": "Points reflect that this is a rare pattern (clearly higher than a 2-digit-substring perk)", "passed": null, "evidence": "" },
+        { "text": "node -e require('./server/scoring.js') loads without throwing", "passed": null, "evidence": "" },
+        { "text": "No files under public/ were modified", "passed": null, "evidence": "" }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "only-8-or-9-helper-reuse",
+      "prompt": "add a perk 'אלופה' described 'כל הספרות הן 8 או 9' for plates where every digit is either 8 or 9",
+      "expected_output": "One new PLATE_PERKS entry: name 'אלופה', desc 'כל הספרות הן 8 או 9', check using isAllIn(d, \"89\") (reusing the existing helper). True for '8899'/'88998899', false for '8891'. Points high (very rare). scoring.js still loads, no client files touched.",
+      "files": [],
+      "assertions": [
+        { "text": "A new PLATE_PERKS entry exists with name 'אלופה' and desc 'כל הספרות הן 8 או 9', both verbatim", "passed": null, "evidence": "" },
+        { "text": "The check returns true for '88998899' and false for '88918899'", "passed": null, "evidence": "" },
+        { "text": "The check reuses the existing isAllIn(d, \"89\") helper rather than re-implementing it", "passed": null, "evidence": "" },
+        { "text": "Points reflect a very rare pattern (high, clearly above mid-tier perks)", "passed": null, "evidence": "" },
+        { "text": "node -e require('./server/scoring.js') loads without throwing", "passed": null, "evidence": "" },
+        { "text": "No files under public/ were modified", "passed": null, "evidence": "" }
+      ]
+    }
+  ]
+}

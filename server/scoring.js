@@ -13,38 +13,41 @@ const FIELDS = [
 
 // Per-manufacturer points (1-40). Dataset uses Hebrew names; multiple origin
 // suffixes (גרמניה, סין, הונגריה…) mean we match on the brand root only.
-// Scores derived from actual fleet distribution (50k-record sample, May 2026;
-// Chinese/EV newcomers refreshed from a 1M-row survey, Jun 2026):
-//   >10% → 1pt | 5-10% → 2pt | 2-5% → 3-4pt | 1-2% → 5-6pt
-//   0.5-1% → 8pt | 0.2-0.5% → 10-12pt | 0.05-0.2% → 14-18pt | <0.05% → 20-40pt
+// Scores derived from actual fleet distribution (1,000,000-record sample, June 2026):
+//   >6% → 1pt | 4-6% → 3pt | 2.5-4% → 4pt | 1-2.5% → 5-6pt | 0.5-1% → 8-9pt
+//   0.1-0.5% → 11-13pt | 0.05-0.1% → 14pt | <0.05% → curated prestige ladder 14-40pt
+// NOTE: keys must match the dataset's spelling — Volvo is "וולבו" (not וולוו) and
+// Land/Range Rover appear as "רובר"/"לנדרובר"; the old keys matched nothing.
+// Chinese/EV newcomers (MG, JAC, Geely, Xpeng, Zeekr, Deepal, Lynk & Co, SsangYong,
+// Skywell, Ora, Maxus) added from the same survey; matched on brand root.
 const MANUFACTURER_POINTS = {
-  // Very common — dominate Israeli fleet (>10 % each)
-  "טויוטה": 1, "קיה": 1, "יונדאי": 1, "מזדה": 1, "סקודה": 1,
-  // Common (2–5 %)
-  "מיצובישי": 3, "בי ווי די": 3, "פיג'ו": 3, "סיטרואן": 3, "סוזוקי": 3,
-  "צ'רי": 3, "הונדה": 4, "מרצדס": 4, "פולקסווגן": 4, "ניסאן": 4,
-  // Less common (1–2 %)
-  "סיאט": 5, "רנו": 5, "פיאט": 6, "פורד": 6, "דאציה": 7, "אופל": 7,
-  // Uncommon (0.5–1 %)
+  // Very common — dominate Israeli fleet (>6 %)
+  "טויוטה": 1, "קיה": 1, "יונדאי": 2, "מזדה": 2, "סקודה": 2,
+  // Common (2.5–5 %)
+  "מיצובישי": 3, "סוזוקי": 3, "ניסאן": 4, "פולקסווגן": 4, "שברולט": 4, "סיאט": 4,
+  // Moderately common (1–2 %)
+  "סובארו": 5, "הונדה": 5, "פורד": 5, "סיטרואן": 5, "צ'רי": 5, "פיג'ו": 5,
   // "אודי" (one א) is the survey spelling for Audi-from-Mexico; keep alongside the
   // canonical "אאודי" so both spellings score the same (both also self-match safely).
-  "לקסוס": 8, "ב מ וו": 8, "אאודי": 8, "אודי": 8, "שברולט": 8, "סובארו": 8,
-  "איסוזו": 9, "דייהטסו": 9, "מרוטי": 9,
+  "בי ווי די": 6, "מרצדס": 6, "ב מ וו": 6, "אאודי": 6, "אודי": 6,
+  "רנו": 8, "אופל": 8, "דאציה": 8, "איסוזו": 8, "פיאט": 8, "וולבו": 8,
+  "לקסוס": 9, "דייהטסו": 9, "טסלה": 9, "מרוטי": 9,
   // Chinese newcomers (0.5–1 %) — match on brand root, suffix is origin (סין)
-  "מ.ג": 8, "ג'אק": 8, "גילי": 8,
-  // Rare (0.2–0.5 %)
-  "פורשה": 11, "וולוו": 11, "דימלר": 10, "קרייזלר": 10,
-  "אלפא רומיאו": 12, "סרס": 12, "קופרה": 12, "ביואיק": 13,
+  "מ.ג": 8, "ג'אק": 9, "גילי": 9,
+  // Rare (0.1–0.5 %)
+  "קרייזלר": 11, "אלפא רומיאו": 13, "ג'יפ": 13, "קאדילאק": 13, "קאדילק": 13,
+  "רובר": 13,
   // Rare EV / Chinese marques (0.1–0.5 %)
   "אקספנג": 11, "זיקר": 12, "דיפאל": 12, "לינק אנד קו": 13, "סאנגיונג": 13,
-  // Very rare (0.05–0.2 %)
-  "מיני": 14, "ג'יפ": 14, "לנד רובר": 16, "ריינג' רובר": 17,
+  // Very rare (0.05–0.1 %)
+  "פורשה": 14, "דימלר": 14, "ביואיק": 14, "קופרה": 14, "סרס": 14,
   // Very rare Chinese marques (0.05–0.1 %)
   "סקיוול": 14, "אורה": 14, "מקסוס": 14,
-  "טסלה": 16, "יגואר": 17, "אינפיניטי": 17, "אקורה": 18,
+  // Near-absent — curated prestige ladder (<0.05 %)
+  "מיני": 14, "יגואר": 17, "אינפיניטי": 17, "אקורה": 18,
   "ג'נסיס": 18, "אבארת'": 18,
   // Ultra-rare (0.01–0.05 %)
-  "פולסטאר": 20, "קאדילק": 22, "קאדילאק": 22, "לינקולן": 22,
+  "פולסטאר": 20, "לינקולן": 22,
   // Exotic (<0.01 %)
   "לוטוס": 28, "מזראטי": 30, "אסטון מרטין": 32,
   "פרארי": 35, "בנטלי": 36, "למבורגיני": 38, "רולס רויס": 38,
@@ -130,58 +133,60 @@ const MODEL_SCORES = [
   ["TURBO",               6], ["GTI",                 7], ["RS",                  8],
 ];
 // Per-color points (1-25).
-// Scores derived from 25k-record sample (May 2026). Order matters — more specific
+// Scores derived from 1,000,000-record sample (June 2026). Order matters — more specific
 // substrings must appear before the key they contain (e.g. "שחור פנינה" before "שחור").
-// Notable fixes vs. prior version:
-//   • "כסף" added — was missing, so כסף מטלי (~14 % of fleet) fell to fallback 10pts
-//   • "חשמל/בנזין" added — was matched by "בנזין" due to ordering, scoring 1pt instead of 7pt
+// "כסף" must precede "אפור" so כסף מטלי doesn't false-match grey.
 const COLOR_POINTS = {
-  // Very common (>5 %) — low score
-  "לבן": 1,       // שנהב לבן etc. ~37.5 %
-  "כסף": 2,       // כסף מטלי, כסף etc. ~14.3 % — must precede אפור to avoid false match
-  "אפור": 2,      // all grey shades combined ~18.2 %
-  "שחור": 3,      // black ~13 %
-  // Common (1–5 %)
-  "כסוף": 8,      // כסוף כהה, כסוף בהיר etc. ~1.2 %
-  "כחול": 9,      // blue ~3.3 %
-  "תכלת": 10,     // light blue incl. מטאלי ~2 %
-  "אדום": 10,     // red ~1.9 %
-  "בז": 10,       // beige incl. מטאלי ~1.9 %
+  // Very common (>10 %) — low score
+  "לבן": 1,       // שנהב לבן etc. ~40.7 %
+  "כסף": 1,       // כסף מטלי, כסף etc. ~15.3 % — must precede אפור to avoid false match
+  "אפור": 1,      // all grey shades combined ~16.0 %
+  "שחור": 2,      // black ~12.3 %
+  // Common (1–4 %)
+  "כחול": 4,      // blue ~3.7 %
+  "כסוף": 5,      // כסוף כהה, כסוף בהיר etc. ~2.4 %
+  "אדום": 5,      // red ~1.8 %
+  "בז": 5,        // beige incl. מטאלי ~1.7 %
+  "תכלת": 7,      // light blue incl. מטאלי ~1.5 %
   // Uncommon (0.3–1 %)
-  "חום": 14,      // brown shades ~0.52 %
-  "ברונזה": 14,   // bronze ~0.49 %
-  "קרם": 15,      // cream ~0.31 %
-  "קפה": 15,      // coffee/caffe metallic ~0.4 %
-  "שן פיל": 16,   // ivory ~0.26 %
-  "ירוק": 14,     // green all shades ~0.7 %
-  "ירקרק": 16,    // greenish ~0.15 %
-  "כתום": 16,     // orange ~0.33 %
-  "זהב": 16,      // gold incl. זהוב ~0.28 %
-  // Rare (0.1–0.3 %)
-  "פלטינה": 17,   // platinum ~0.18 %
-  "צהוב": 18,     // yellow ~0.19 %
-  "טורקיז": 18,   // turquoise ~0.18 %
-  "בורדו": 18,    // burgundy ~0.16 %
-  "רב גווני": 18, // multicolor ~0.14 %
-  // Very rare (<0.1 %)
-  "נחושת": 20,    // copper ~0.09 %
-  "חציל": 20,     // eggplant ~0.05 %
-  "סגול": 22,     // purple ~0.10 %
-  "ורוד": 24,     // pink ~0.04 %
+  "ירוק": 9,      // green all shades ~0.66 %
+  "ברונזה": 11,   // bronze ~0.43 %
+  "קפה": 11,      // coffee/caffe metallic ~0.33 %
+  "חום": 11,      // brown shades ~0.33 %
+  "קרם": 11,      // cream ~0.30 %
+  // Rare (0.2–0.3 %)
+  "כתום": 13,     // orange ~0.28 %
+  "טורקיז": 13,   // turquoise ~0.23 %
+  "שן פיל": 13,   // ivory ~0.22 %
+  // Rare (0.15–0.2 %)
+  "צהוב": 14,     // yellow ~0.20 %
+  "בורדו": 14,    // burgundy ~0.20 %
+  "זהב": 14,      // gold incl. זהוב ~0.19 %
+  // Very rare (0.1–0.15 %)
+  "פלטינה": 16,   // platinum ~0.13 %
+  "סגול": 16,     // purple ~0.11 %
+  "ירקרק": 16,    // greenish ~0.10 %
+  // Ultra-rare (<0.1 %)
+  "רב גווני": 18, // multicolor ~0.09 %
+  "נחושת": 19,    // copper ~0.07 %
+  "חציל": 19,     // eggplant ~0.06 %
+  "ורוד": 19,     // pink ~0.05 %
 };
 // Fuel-type points. ORDER IS CRITICAL — more specific strings must come first,
 // otherwise "חשמל/בנזין" (hybrid) would be caught by "בנזין" and score 1pt.
-// Scores from 25k sample: בנזין 83.6 %, דיזל 10.9 %, חשמל/בנזין 4.0 %, חשמל 1.0 %, גפ"מ 0.5 %
+// Scores from 1,000,000 sample (June 2026): בנזין 82.1 %, דיזל 9.0 %, חשמל 5.2 %,
+// חשמל/בנזין 3.2 %, גפ"מ 0.42 %, חשמל/דיזל 0.03 %. Pure EVs are now common, so
+// "חשמל" drops from 16 to 4 — rarer than a petrol hybrid is no longer true.
 const FUEL_POINTS = {
-  "חשמל/דיזל": 24,  // diesel hybrid ~0.016 % — before "דיזל" and "חשמל"
-  "חשמל/בנזין": 7,  // petrol hybrid ~4 % — before "בנזין" and "חשמל"
-  "בנזין": 1,        // petrol ~83.6 %
-  "דיזל": 4,         // diesel ~10.9 %
+  "חשמל/דיזל": 24,  // diesel hybrid ~0.03 % — before "דיזל" and "חשמל"
+  "חשמל/בנזין": 5,  // petrol hybrid ~3.2 % — before "בנזין" and "חשמל"
+  "בנזין": 1,        // petrol ~82.1 %
+  "דיזל": 4,         // diesel ~9.0 %
   "סולר": 4,
-  "חשמל": 16,        // pure EV ~1.0 %
-  "חשמלי": 16,
-  "גפ\"מ": 18,       // LPG ~0.5 %
-  "גפמ": 18,
+  "חשמל": 4,         // pure EV ~5.2 % — now as common as a hybrid
+  "חשמלי": 4,
+  "גפ\"מ": 12,       // LPG ~0.42 %
+  "גפמ": 12,
   "גז טבעי": 24,     // CNG — before "גז"
   "גז": 22,
   "מימן": 30,        // hydrogen — essentially absent from fleet
@@ -383,6 +388,20 @@ const PLATE_PERKS = [
     desc: "הרצף 888 מופיע בלוחית",
     pts: 7,
     check: (d) => d.includes("888"),
+  },
+  {
+    id: "sixtyseven",
+    name: "שש שבע!",
+    desc: "מספר לוחית מכיל 67",
+    pts: 6,
+    check: (d) => d.includes("67"),
+  },
+  {
+    id: "sixtynine",
+    name: "נחמד",
+    desc: "מספר לוחית מכיל 69",
+    pts: 6,
+    check: (d) => d.includes("69"),
   },
   {
     id: "allunique",
