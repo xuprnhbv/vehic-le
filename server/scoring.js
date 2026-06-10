@@ -18,6 +18,8 @@ const FIELDS = [
 //   0.1-0.5% → 11-13pt | 0.05-0.1% → 14pt | <0.05% → curated prestige ladder 14-40pt
 // NOTE: keys must match the dataset's spelling — Volvo is "וולבו" (not וולוו) and
 // Land/Range Rover appear as "רובר"/"לנדרובר"; the old keys matched nothing.
+// Chinese/EV newcomers (MG, JAC, Geely, Xpeng, Zeekr, Deepal, Lynk & Co, SsangYong,
+// Skywell, Ora, Maxus) added from the same survey; matched on brand root.
 const MANUFACTURER_POINTS = {
   // Very common — dominate Israeli fleet (>6 %)
   "טויוטה": 1, "קיה": 1, "יונדאי": 2, "מזדה": 2, "סקודה": 2,
@@ -25,15 +27,22 @@ const MANUFACTURER_POINTS = {
   "מיצובישי": 3, "סוזוקי": 3, "ניסאן": 4, "פולקסווגן": 4, "שברולט": 4, "סיאט": 4,
   // Moderately common (1–2 %)
   "סובארו": 5, "הונדה": 5, "פורד": 5, "סיטרואן": 5, "צ'רי": 5, "פיג'ו": 5,
-  "בי ווי די": 6, "מרצדס": 6, "ב מ וו": 6, "אאודי": 6,
-  // Uncommon (0.5–1 %)
+  // "אודי" (one א) is the survey spelling for Audi-from-Mexico; keep alongside the
+  // canonical "אאודי" so both spellings score the same (both also self-match safely).
+  "בי ווי די": 6, "מרצדס": 6, "ב מ וו": 6, "אאודי": 6, "אודי": 6,
   "רנו": 8, "אופל": 8, "דאציה": 8, "איסוזו": 8, "פיאט": 8, "וולבו": 8,
   "לקסוס": 9, "דייהטסו": 9, "טסלה": 9, "מרוטי": 9,
+  // Chinese newcomers (0.5–1 %) — match on brand root, suffix is origin (סין)
+  "מ.ג": 8, "ג'אק": 9, "גילי": 9,
   // Rare (0.1–0.5 %)
   "קרייזלר": 11, "אלפא רומיאו": 13, "ג'יפ": 13, "קאדילאק": 13, "קאדילק": 13,
   "רובר": 13,
+  // Rare EV / Chinese marques (0.1–0.5 %)
+  "אקספנג": 11, "זיקר": 12, "דיפאל": 12, "לינק אנד קו": 13, "סאנגיונג": 13,
   // Very rare (0.05–0.1 %)
   "פורשה": 14, "דימלר": 14, "ביואיק": 14, "קופרה": 14, "סרס": 14,
+  // Very rare Chinese marques (0.05–0.1 %)
+  "סקיוול": 14, "אורה": 14, "מקסוס": 14,
   // Near-absent — curated prestige ladder (<0.05 %)
   "מיני": 14, "יגואר": 17, "אינפיניטי": 17, "אקורה": 18,
   "ג'נסיס": 18, "אבארת'": 18,
