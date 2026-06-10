@@ -127,7 +127,7 @@ async function loadTodayRoll() {
 window.addEventListener("auth:loggedIn", loadTodayRoll);
 
 window.addEventListener("auth:loggedOut", () => {
-  plateEl.innerHTML = `<span class="plate-placeholder">— — — — — — —</span>`;
+  plateEl.innerHTML = `<span class="plate-placeholder">–––<span class="plate-placeholder-sep">–</span>––<span class="plate-placeholder-sep">–</span>–––</span>`;
   resultEl.classList.add("hidden");
   resultFields.innerHTML = "";
   const rating = document.getElementById("rating");
@@ -140,8 +140,8 @@ window.addEventListener("auth:loggedOut", () => {
 
 rollBtn.addEventListener("click", async () => {
   rollBtn.disabled = true;
-  // Show spinning slots immediately (7-digit placeholder: XX-XXX-XX)
-  buildSlotPlate("00-000-00");
+  // Show spinning slots immediately (8-digit placeholder: XXX-XX-XXX, more common than 7-digit)
+  buildSlotPlate("000-00-000");
   statusEl.textContent = "מגלגל…";
   resultEl.classList.add("hidden");
   let hitDailyLimit = false;
