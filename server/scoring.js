@@ -275,6 +275,12 @@ function isPerfectSquare(n) {
   return r * r === n;
 }
 
+function isPerfectCube(n) {
+  if (n < 0) return false;
+  const r = Math.round(Math.cbrt(n));
+  return r * r * r === n;
+}
+
 function isTriangular(n) {
   // t(t+1)/2 = n  →  t = (-1 + sqrt(1+8n))/2
   if (n < 1) return false;
@@ -341,6 +347,27 @@ function hasConsecutiveRun(d, step) {
   return false;
 }
 
+// Strictly rises to a single peak, then strictly falls (a "hill"). Peak must be
+// interior, so both an up-slope and a down-slope exist. Works for any length.
+function isHill(d) {
+  const n = d.length;
+  let i = 0;
+  while (i + 1 < n && Number(d[i]) < Number(d[i + 1])) i++;
+  if (i === 0 || i === n - 1) return false;
+  while (i + 1 < n && Number(d[i]) > Number(d[i + 1])) i++;
+  return i === n - 1;
+}
+
+// Strictly falls to a single trough, then strictly rises (a "valley").
+function isValley(d) {
+  const n = d.length;
+  let i = 0;
+  while (i + 1 < n && Number(d[i]) > Number(d[i + 1])) i++;
+  if (i === 0 || i === n - 1) return false;
+  while (i + 1 < n && Number(d[i]) < Number(d[i + 1])) i++;
+  return i === n - 1;
+}
+
 const PLATE_PERKS = [
   {
     id: "monodigit",
@@ -374,20 +401,6 @@ const PLATE_PERKS = [
     desc: "שלוש ספרות זהות ברצף",
     pts: 8,
     check: (d) => /(.)\1\1/.test(d),
-  },
-  {
-    id: "triple777",
-    name: "777",
-    desc: "הרצף 777 מופיע בלוחית",
-    pts: 7,
-    check: (d) => d.includes("777"),
-  },
-  {
-    id: "triple888",
-    name: "888",
-    desc: "הרצף 888 מופיע בלוחית",
-    pts: 7,
-    check: (d) => d.includes("888"),
   },
   {
     id: "sixtyseven",
@@ -483,11 +496,15 @@ const PLATE_PERKS = [
     check: (d) => isAllIn(d, "01") && new Set(d).size > 1,
   },
   {
-    id: "quad7",
-    name: "רביעיית שביעיות",
-    desc: "הספרה 7 מופיעה לפחות ארבע פעמים",
-    pts: 12,
-    check: (d) => (d.match(/7/g) || []).length >= 4,
+    id: "allpairs",
+    name: "הכל בזוגות",
+    desc: "כל ספרה מופיעה מספר זוגי של פעמים",
+    pts: 10,
+    check: (d) => {
+      const c = {};
+      for (const ch of d) c[ch] = (c[ch] || 0) + 1;
+      return Object.values(c).every((n) => n % 2 === 0);
+    },
   },
 
   // ── Runs & Patterns ────────────────────────────────────────────────────────
@@ -541,27 +558,6 @@ const PLATE_PERKS = [
     check: (d) => d.includes("666"),
   },
   {
-    id: "seq123",
-    name: "123",
-    desc: "הרצף 123 מופיע בלוחית",
-    pts: 5,
-    check: (d) => d.includes("123"),
-  },
-  {
-    id: "seq321",
-    name: "321",
-    desc: "הרצף 321 מופיע בלוחית",
-    pts: 5,
-    check: (d) => d.includes("321"),
-  },
-  {
-    id: "innerzero",
-    name: "אפסים מוכלים",
-    desc: "לפחות שני אפסים בתוך הלוחית (לא בקצוות)",
-    pts: 6,
-    check: (d) => (d.slice(1, -1).match(/0/g) || []).length >= 2,
-  },
-  {
     id: "quaddigit",
     name: "רביעייה",
     desc: "אותה ספרה מופיעה לפחות ארבע פעמים",
@@ -574,6 +570,24 @@ const PLATE_PERKS = [
     desc: "אותה ספרה מופיעה לפחות חמש פעמים",
     pts: 18,
     check: (d) => maxDigitCount(d) >= 5,
+  },
+  {
+    id: "twins",
+    name: "תאומים",
+    desc: "מחצית הלוחית הראשונה זהה למחצית השנייה (בלוחית בת 8 ספרות)",
+    pts: 22,
+    check: (d) => d.length === 8 && d.slice(0, 4) === d.slice(4),
+  },
+  {
+    id: "doublestairs",
+    name: "מדרגות כפולות",
+    desc: "הלוחית בנויה מזוגות של ספרות זהות (א-א-ב-ב-ג-ג…)",
+    pts: 18,
+    check: (d) => {
+      if (d.length % 2 !== 0) return false;
+      for (let i = 0; i < d.length; i += 2) if (d[i] !== d[i + 1]) return false;
+      return true;
+    },
   },
 
   // ── Math ────────────────────────────────────────────────────────────────────
@@ -620,6 +634,23 @@ const PLATE_PERKS = [
     check: (d) => isPowerOfTwo(Number(d)),
   },
   {
+    id: "perfectcube",
+    name: "קוביה מושלמת",
+    desc: "מספר הלוחית הוא חזקה שלישית מושלמת",
+    pts: 30,
+    check: (d) => isPerfectCube(Number(d)),
+  },
+  {
+    id: "harshad",
+    name: "מספר ניבן",
+    desc: "מספר הלוחית מתחלק בסכום ספרותיו",
+    pts: 5,
+    check: (d) => {
+      const s = digitSum(d);
+      return s > 0 && Number(d) % s === 0;
+    },
+  },
+  {
     id: "fibonacci",
     name: "פיבונאצ'י",
     desc: "מספר הלוחית מופיע בסדרת פיבונאצ'י",
@@ -658,8 +689,8 @@ const PLATE_PERKS = [
   // ── Contains ───────────────────────────────────────────────────────────────
   {
     id: "contains42",
-    name: "42",
-    desc: "הרצף 42 מופיע בלוחית",
+    name: "התשובה",
+    desc: "הרצף 42 מופיע בלוחית — התשובה לחיים, היקום וכל השאר",
     pts: 4,
     check: (d) => d.includes("42"),
   },
@@ -691,6 +722,61 @@ const PLATE_PERKS = [
     pts: 5,
     check: (d) => d.includes("911"),
   },
+  {
+    id: "independence",
+    name: "עצמאות",
+    desc: "הרצף 1948 מופיע בלוחית — שנת הקמת המדינה",
+    pts: 12,
+    check: (d) => d.includes("1948"),
+  },
+  {
+    id: "israelcode",
+    name: "קידומת ישראל",
+    desc: "הרצף 972 מופיע בלוחית — קידומת החיוג של ישראל",
+    pts: 5,
+    check: (d) => d.includes("972"),
+  },
+  {
+    id: "mada",
+    name: 'מד"א',
+    desc: "הרצף 101 מופיע בלוחית — מספר החירום של מגן דוד אדום",
+    pts: 5,
+    check: (d) => d.includes("101"),
+  },
+  {
+    id: "cellprefix",
+    name: "סלולרי",
+    desc: "הלוחית מכילה קידומת סלולרית (050/052/053/054/058)",
+    pts: 4,
+    check: (d) => ["050", "052", "053", "054", "058"].some((p) => d.includes(p)),
+  },
+  {
+    id: "bond",
+    name: "ג'יימס בונד",
+    desc: "הרצף 007 מופיע בלוחית",
+    pts: 5,
+    check: (d) => d.includes("007"),
+  },
+  {
+    id: "fourtwenty",
+    name: "הצת אותה!",
+    desc: "הרצף 420 מופיע בלוחית",
+    pts: 4,
+    check: (d) => d.includes("420"),
+  },
+  {
+    id: "today",
+    name: "היום!",
+    desc: "מספר הלוחית מכיל את התאריך של היום (DDMMYY)",
+    pts: 25,
+    check: (d) => {
+      const t = new Date();
+      const dd = String(t.getDate()).padStart(2, "0");
+      const mm = String(t.getMonth() + 1).padStart(2, "0");
+      const yy = String(t.getFullYear() % 100).padStart(2, "0");
+      return d.includes(`${dd}${mm}${yy}`);
+    },
+  },
 
   // ── Position ───────────────────────────────────────────────────────────────
   {
@@ -699,13 +785,6 @@ const PLATE_PERKS = [
     desc: "הספרה הראשונה והאחרונה זהות",
     pts: 5,
     check: (d) => d[0] === d[d.length - 1],
-  },
-  {
-    id: "nearedges",
-    name: "קצוות סמוכים",
-    desc: "ההפרש בין הספרה הראשונה והאחרונה הוא 1",
-    pts: 3,
-    check: (d) => Math.abs(Number(d[0]) - Number(d[d.length - 1])) === 1,
   },
   {
     id: "nondecreasing",
@@ -726,6 +805,34 @@ const PLATE_PERKS = [
       for (let i = 1; i < d.length; i++) if (Number(d[i]) > Number(d[i - 1])) return false;
       return true;
     },
+  },
+  {
+    id: "hill",
+    name: "גבעה",
+    desc: "ספרות עולות עד הספרה האמצעית, ואז הן יורדות",
+    pts: 16,
+    check: (d) => isHill(d),
+  },
+  {
+    id: "valley",
+    name: "גיא",
+    desc: "ספרות יורדות עד הספרה האמצעית, ואז הן עולות",
+    pts: 16,
+    check: (d) => isValley(d),
+  },
+  {
+    id: "perfecthill",
+    name: "גבעה מושלמת",
+    desc: "גבעה שבה הספרה הראשונה והאחרונה זהות",
+    pts: 22,
+    check: (d) => isHill(d) && d[0] === d[d.length - 1],
+  },
+  {
+    id: "perfectvalley",
+    name: "גיא מושלם",
+    desc: "גיא שבו הספרה הראשונה והאחרונה זהות",
+    pts: 22,
+    check: (d) => isValley(d) && d[0] === d[d.length - 1],
   },
 
   // ── Special / themed ─────────────────────────────────────────────────────────
