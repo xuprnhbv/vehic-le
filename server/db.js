@@ -245,8 +245,13 @@ function getLeaderboard(limit = 50, period = 'today') {
 
 // Upsert by endpoint: a browser hands back the same endpoint when re-subscribing,
 // and a shared device can change owner, so we key on the endpoint and refresh the
-// owner/keys. last_notified_date is left untouched on update.
+// owner/keys. last_notified_date is left untouched on update. Returns true when a
+// brand-new subscription was inserted (vs. an existing endpoint refreshed), so
+// callers can greet only first-time subscribers.
 function saveSubscription(userId, sub) {
+  const existing = db
+    .prepare(`SELECT 1 FROM push_subscriptions WHERE endpoint = ?`)
+    .get(sub.endpoint);
   db.prepare(
     `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
      VALUES (?, ?, ?, ?)
@@ -255,6 +260,7 @@ function saveSubscription(userId, sub) {
        p256dh  = excluded.p256dh,
        auth    = excluded.auth`
   ).run(userId, sub.endpoint, sub.keys.p256dh, sub.keys.auth);
+  return !existing;
 }
 
 function deleteSubscription(endpoint) {

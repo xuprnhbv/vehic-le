@@ -32,20 +32,46 @@ router.get("/config", (_req, res) => {
   res.json({ enabled, vapidPublicKey: enabled ? VAPID_PUBLIC_KEY : null });
 });
 
+const WELCOME_NOTIFICATION = {
+  title: "ההתראות הופעלו! 🔔",
+  body: "מעכשיו תקבל תזכורת יומית לגלגל לוחית 🎲",
+  url: "/",
+};
+
+// Confirm a brand-new subscription by pushing a notification straight back to it.
+// Best-effort: the subscription is already saved, so a delivery hiccup here must
+// not fail the request. A 404/410 means the endpoint is already dead — prune it.
+async function sendSubscriptionConfirmation(sub) {
+  const payload = JSON.stringify(WELCOME_NOTIFICATION);
+  try {
+    await webpush.sendNotification(sub, payload);
+  } catch (err) {
+    if (err.statusCode === 404 || err.statusCode === 410) {
+      db.deleteSubscription(sub.endpoint);
+    } else {
+      console.error(`[push] confirmation send failed (${err.statusCode || "?"}): ${err.message}`);
+    }
+  }
+}
+
 // Store (or refresh) the current user's push subscription.
-router.post("/subscribe", requireAuth, (req, res) => {
+router.post("/subscribe", requireAuth, async (req, res) => {
   const sub = req.body;
   if (!enabled) return res.status(503).json({ error: "push disabled" });
   if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
     return res.status(400).json({ error: "invalid subscription" });
   }
+  let isNew;
   try {
-    db.saveSubscription(req.user.id, sub);
-    res.json({ ok: true });
+    isNew = db.saveSubscription(req.user.id, sub);
   } catch (err) {
     console.error(`[push] subscribe failed: ${err.message}`);
-    res.status(500).json({ error: "subscribe failed" });
+    return res.status(500).json({ error: "subscribe failed" });
   }
+  res.json({ ok: true });
+  // Only greet a genuinely new subscription — refreshing an existing one (same
+  // endpoint on every page load) shouldn't re-notify the user.
+  if (isNew) await sendSubscriptionConfirmation(sub);
 });
 
 // Drop a subscription (user toggled reminders off / unsubscribed in the browser).
