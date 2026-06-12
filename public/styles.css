@@ -75,7 +75,10 @@ header h1 {
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   border: 4px solid #1c1917;
-  width: 357px;
+  /* Must fit the widest content: 8 slot windows (0.65em) + 2 seps (0.7em)
+     + letter-spacing, plus padding/border. nowrap is the hard guarantee. */
+  width: 384px;
+  white-space: nowrap;
   text-align: center;
   direction: ltr;
   user-select: all;
@@ -1290,7 +1293,7 @@ dd {
 
   .plate {
     font-size: 1.9rem;
-    width: 244px;
+    width: 266px;
     padding: 0.6rem 0.9rem;
     letter-spacing: 0.08em;
   }
@@ -1322,7 +1325,7 @@ dd {
 @media (max-width: 380px) {
   header h1 { font-size: 1.75rem; }
 
-  .plate { font-size: 1.55rem; letter-spacing: 0.05em; width: 199px; }
+  .plate { font-size: 1.55rem; letter-spacing: 0.05em; width: 217px; }
 
   .roll-btn { width: 100%; padding: 0.85rem 1rem; }
 
