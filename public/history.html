@@ -130,6 +130,19 @@
               dd.append(chips, pts);
               dl.append(dt, dd);
             }
+            if (row.payload.streak > 1 && row.payload.streakBonus > 0) {
+              const dt = document.createElement("dt");
+              dt.textContent = "רצף ימים";
+              const dd = document.createElement("dd");
+              const valSpan = document.createElement("span");
+              valSpan.className = "field-value";
+              valSpan.textContent = `🔥 ${row.payload.streak} ימים`;
+              const pts = document.createElement("span");
+              pts.className = `field-points ${pulseClassFor(row.payload.streakBonus)}`;
+              pts.textContent = `+${row.payload.streakBonus}`;
+              dd.append(valSpan, pts);
+              dl.append(dt, dd);
+            }
             td.appendChild(dl);
             detailTr.appendChild(td);
             tbody.appendChild(detailTr);

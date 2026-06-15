@@ -85,6 +85,15 @@ try {
   `);
 } catch { /* column already exists — safe to ignore on every restart after first */ }
 
+// Additive migration: per-roll streak count + bonus. Existing rows default to a
+// bonus of 0, so total_score (= SUM(score)) stays consistent — no re-backfill needed.
+try {
+  db.exec(`ALTER TABLE rolls ADD COLUMN streak INTEGER NOT NULL DEFAULT 1`);
+} catch { /* column already exists — safe to ignore on every restart after first */ }
+try {
+  db.exec(`ALTER TABLE rolls ADD COLUMN streak_bonus INTEGER NOT NULL DEFAULT 0`);
+} catch { /* column already exists — safe to ignore on every restart after first */ }
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 const normEmail = (email) => String(email).trim().toLowerCase();
@@ -163,15 +172,41 @@ function getTodayRoll(userId) {
     .get(userId);
 }
 
+// Consecutive UTC days the user has rolled, counting today's roll (which is about
+// to be inserted, so it is not yet in `rolls` when this is called from /api/roll).
+// Walks backward from yesterday using UTC date strings to match SQLite's date()
+// (UTC), consistent with hasRolledToday and the push-reminder logic.
+function getCurrentStreak(userId) {
+  const rows = db
+    .prepare(`SELECT DISTINCT date(created_at) AS d FROM rolls WHERE user_id = ?`)
+    .all(userId);
+  const have = new Set(rows.map((r) => r.d));
+  let streak = 1; // today's roll being made now
+  const cur = new Date();
+  cur.setUTCDate(cur.getUTCDate() - 1); // start at yesterday
+  while (have.has(cur.toISOString().slice(0, 10))) {
+    streak++;
+    cur.setUTCDate(cur.getUTCDate() - 1);
+  }
+  return streak;
+}
+
 function insertRoll(userId, payload) {
+  const streak = payload.streak ?? 1;
+  const bonus = payload.streakBonus ?? 0;
   const insertStmt = db.prepare(
-    `INSERT INTO rolls (user_id, plate_display, score, tier, payload_json) VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO rolls (user_id, plate_display, score, tier, payload_json, streak, streak_bonus)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
   );
+  // Streak bonus lands in the overall total (and cumulative leaderboards) but never
+  // in the plate score (rolls.score) or tier.
   const addScore = db.prepare(`UPDATE users SET total_score = total_score + ? WHERE id = ?`);
   db.exec("BEGIN");
   try {
-    insertStmt.run(userId, payload.plate.display, payload.score, payload.tier, JSON.stringify(payload));
-    addScore.run(payload.score, userId);
+    insertStmt.run(
+      userId, payload.plate.display, payload.score, payload.tier, JSON.stringify(payload), streak, bonus
+    );
+    addScore.run(payload.score + bonus, userId);
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
@@ -226,11 +261,12 @@ function getLeaderboard(limit = 50, period = 'today') {
 
   // SQLite quirk: with exactly one MAX() in the query, the bare columns
   // (plate_display/tier/payload_json/created_at) come from the MAX row — i.e. each
-  // user's best roll. `score` is the user's total across the window.
+  // user's best roll. `score` is the user's total across the window, streak bonuses
+  // included (matches users.total_score). best_score stays the rarest single plate.
   return db
     .prepare(
       `SELECT u.username,
-              SUM(r.score) AS score,
+              SUM(r.score) + SUM(r.streak_bonus) AS score,
               MAX(r.score) AS best_score,
               r.plate_display, r.tier, r.payload_json, r.created_at
        FROM rolls r JOIN users u ON u.id = r.user_id
@@ -358,12 +394,13 @@ function getAllRolls(limit = 100) {
 }
 
 function deleteRoll(rollId) {
-  const roll = db.prepare(`SELECT user_id, score FROM rolls WHERE id = ?`).get(rollId);
+  const roll = db.prepare(`SELECT user_id, score, streak_bonus FROM rolls WHERE id = ?`).get(rollId);
   if (!roll) return;
   db.exec("BEGIN");
   try {
     db.prepare(`DELETE FROM rolls WHERE id = ?`).run(rollId);
-    db.prepare(`UPDATE users SET total_score = MAX(0, total_score - ?) WHERE id = ?`).run(roll.score, roll.user_id);
+    db.prepare(`UPDATE users SET total_score = MAX(0, total_score - ?) WHERE id = ?`)
+      .run(roll.score + roll.streak_bonus, roll.user_id);
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
@@ -373,7 +410,8 @@ function deleteRoll(rollId) {
 
 function deleteTodayRoll(userId) {
   const row = db.prepare(
-    `SELECT COALESCE(SUM(score), 0) AS s FROM rolls WHERE user_id = ? AND date(created_at) = date('now')`
+    `SELECT COALESCE(SUM(score) + SUM(streak_bonus), 0) AS s
+     FROM rolls WHERE user_id = ? AND date(created_at) = date('now')`
   ).get(userId);
   db.exec("BEGIN");
   try {
@@ -433,6 +471,7 @@ module.exports = {
   hasRolledToday,
   getTodayRoll,
   getTodayRank,
+  getCurrentStreak,
   insertRoll,
   getUserHistory,
   getUserTotalScore,

@@ -8,8 +8,8 @@ const SqliteStore = require("./session-store")(session);
 const passport = require("passport");
 
 const { startRefreshTimer, rollRecord, fetchRecordByPlate } = require("./dataset");
-const { buildRollPayload } = require("./scoring");
-const { insertRoll, hasRolledToday, getTodayRank, createMessage } = require("./db");
+const { buildRollPayload, streakBonus } = require("./scoring");
+const { insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
 const admin = require("./admin");
@@ -112,6 +112,11 @@ app.get("/api/roll", async (req, res) => {
     let rank = null;
     if (req.user) {
       try {
+        // Streak is derived from past rolls (no stored counter), so an in-progress
+        // streak is always real. The bonus feeds the overall total, not the plate score.
+        const streak = getCurrentStreak(req.user.id);
+        payload.streak = streak;
+        payload.streakBonus = streakBonus(streak);
         insertRoll(req.user.id, payload);
         rank = getTodayRank(req.user.id);
       } catch (err) {

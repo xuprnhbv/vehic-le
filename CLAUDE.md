@@ -54,7 +54,26 @@ datastore is the source of plate records only. No automated test suite.
    `{ plate, fields, platePerks, score, tier }`.
 4. Client animates: `revealPlate` (slot reels) then `revealScoring` (count-up + tier badge).
 5. If a user is logged in, the **server** also persists the roll inside the `/api/roll`
-   handler using its own authoritative payload — the client never submits a score.
+   handler using its own authoritative payload — the client never submits a score. It also
+   computes the **daily streak** here (see below) and attaches `streak`/`streakBonus` to the
+   stored payload.
+
+## Daily streaks
+
+Logged-in users earn a **streak bonus** for rolling on consecutive days. The streak is
+*never* stored as a counter — [`getCurrentStreak`](server/db.js) derives it at roll time by
+walking back over the user's distinct roll dates (UTC, matching `date('now')`), so an
+in-progress streak is always real. The bonus comes from [`streakBonus`](server/scoring.js)
+(Standard curve: +2/day, capped at day 20, plus milestone jumps at 7/30/100 days).
+
+The bonus is added to the player's **overall score** (`users.total_score`) and to the
+**cumulative leaderboards** (7d/30d/all — which sum scores), but **never** to the per-plate
+score (`rolls.score`) or tier, and **not** to the *today* leaderboard (a pure plate-rarity
+contest). Each roll stores its own `streak` and `streak_bonus` columns so totals stay
+consistent through `insertRoll`/`deleteRoll`/`deleteTodayRoll`. The client shows an escalating
+streak flourish (`renderStreak`/`streakTier` in [public/reveal.js](public/reveal.js), five
+tiers in [public/styles.css](public/styles.css)); the anonymous `/api/rate` path sends no
+`streak`, so no streak UI appears.
 
 ## How auth flows
 
@@ -107,13 +126,16 @@ always single-use. Expired-but-unconsumed tokens are harmless (rejected on looku
 | `id` | INTEGER PK | auto-increment |
 | `user_id` | INTEGER | FK → `users.id` (CASCADE DELETE) |
 | `plate_display` | TEXT | formatted plate string e.g. `12-345-67` |
-| `score` | INTEGER | server-authoritative final score |
-| `tier` | TEXT | S / A / B / C / D |
-| `payload_json` | TEXT | full JSON of the roll payload |
+| `score` | INTEGER | server-authoritative **plate** score (no streak bonus) |
+| `tier` | TEXT | S / A / B / C / D (from the plate score) |
+| `payload_json` | TEXT | full JSON of the roll payload (incl. `streak`/`streakBonus`) |
+| `streak` | INTEGER | consecutive-day count for this roll (1 = no streak) |
+| `streak_bonus` | INTEGER | points the streak added to the user's total (not to `score`) |
 | `created_at` | TEXT | ISO datetime |
 
 Indexed on `(user_id, created_at DESC)` for history queries and on `score DESC` for the
-leaderboard. Anonymous rolls are never written here.
+leaderboard. Anonymous rolls are never written here. `users.total_score` =
+`SUM(score) + SUM(streak_bonus)` — keep both sides in sync when mutating rolls.
 
 ### `sessions`
 | column | type | notes |

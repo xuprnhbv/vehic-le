@@ -23,6 +23,60 @@ window.Reveal = (function () {
     return "pulse-min";
   }
 
+  // Fanciness tier for the streak flourish — the longer the streak, the showier.
+  function streakTier(streak) {
+    if (streak >= 100) return 5;
+    if (streak >= 30) return 4;
+    if (streak >= 7) return 3;
+    if (streak >= 2) return 2;
+    return 1;
+  }
+
+  // One flame per ~tier so the icon row visibly grows with the streak.
+  function streakFlames(tier) {
+    return "🔥".repeat(tier);
+  }
+
+  // Build (and optionally animate) the streak banner shown under the rating. The
+  // bonus counts toward the overall/total score — never the plate score or tier.
+  // Returns the node, or null when there's no streak to show.
+  async function renderStreak(payload, resultEl, animate) {
+    const streak = payload?.streak;
+    if (!streak) return null;
+    const bonus = payload.streakBonus ?? 0;
+    const tier = streakTier(streak);
+
+    // Remove any prior banner (e.g. re-render on reload).
+    resultEl.querySelector(".streak")?.remove();
+
+    const el = document.createElement("div");
+    el.className = `streak streak-tier-${tier}`;
+    el.innerHTML = `
+      <span class="streak-flames">${streakFlames(tier)}</span>
+      <span class="streak-body">
+        <span class="streak-count">רצף של ${streak} ${streak === 1 ? "יום" : "ימים"}!</span>
+        <span class="streak-bonus">+0</span>
+        <span class="streak-note">לניקוד הכולל</span>
+      </span>`;
+    // Place right after the rating block.
+    const rating = resultEl.querySelector("#rating");
+    if (rating && rating.nextSibling) resultEl.insertBefore(el, rating.nextSibling);
+    else resultEl.appendChild(el);
+
+    const bonusEl = el.querySelector(".streak-bonus");
+    if (animate) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      el.classList.add("streak-in");
+      await countUp(bonusEl, 0, bonus, 600, (v) => `+${v}`);
+      el.classList.add("streak-pop");
+      setTimeout(() => el.classList.remove("streak-pop"), 700);
+    } else {
+      el.classList.add("streak-in");
+      bonusEl.textContent = `+${bonus}`;
+    }
+    return el;
+  }
+
   function countUp(el, from, to, duration, format) {
     return new Promise((resolve) => {
       const start = performance.now();
@@ -154,6 +208,10 @@ window.Reveal = (function () {
     // Grand finale flash at the end
     rating.classList.add("rating-flash");
     setTimeout(() => rating.classList.remove("rating-flash"), 900);
+
+    // Streak flourish plays after the plate score is fully revealed.
+    await sleep(350);
+    await renderStreak(payload, resultEl, true);
   }
 
   // Show a scored result immediately, with no animation.
@@ -198,8 +256,10 @@ window.Reveal = (function () {
     badge.textContent = String(payload.score);
     rating.querySelector(".rating-score").textContent = "";
 
+    renderStreak(payload, resultEl, false);
+
     resultEl.classList.remove("hidden");
   }
 
-  return { tierFor, pulseClassFor, countUp, ensureRatingNode, revealScoring, showResultInstant };
+  return { tierFor, pulseClassFor, countUp, ensureRatingNode, revealScoring, showResultInstant, renderStreak, streakTier };
 })();
