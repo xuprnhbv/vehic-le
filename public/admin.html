@@ -57,6 +57,48 @@
       </div>
     </section>
 
+    <!-- Announcements (site popups) -->
+    <section class="list-panel" style="margin-top:1.5rem">
+      <h2 class="section-title">פופאפים לאתר</h2>
+      <div class="announce-admin">
+        <form id="announceForm" class="announce-form">
+          <label>טקסט ההודעה
+            <textarea id="announceText" rows="6" placeholder="כתבו כאן את ההודעה…" required></textarea>
+          </label>
+          <p class="announce-hint">
+            עיצוב: <code>**מודגש**</code> · <code>*נטוי*</code> · צבע:
+            <code>{accent|טקסט}</code> <code>{green|…}</code> <code>{blue|…}</code>
+            <code>{red|…}</code> <code>{muted|…}</code> · שורה ריקה = פסקה חדשה.
+          </p>
+          <div class="announce-form-row">
+            <label>זמן תצוגה (שעות)
+              <input id="announceHours" type="number" min="0.25" step="0.25" value="24" required />
+            </label>
+            <button type="submit" class="admin-btn">פרסם פופאפ</button>
+          </div>
+          <div class="form-msg" id="announceMsg"></div>
+        </form>
+        <div class="announce-preview-wrap">
+          <div class="announce-preview-label">תצוגה מקדימה</div>
+          <div class="announce-body" id="announcePreview"></div>
+        </div>
+      </div>
+      <table class="score-table" id="announcementsTable" style="margin-top:1.25rem">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>הודעה</th>
+            <th>מתחיל</th>
+            <th>מסתיים</th>
+            <th>סטטוס</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody id="announcementsTbody"></tbody>
+      </table>
+      <p class="empty-msg hidden" id="announcementsEmpty">אין פופאפים.</p>
+    </section>
+
     <!-- Stats -->
     <section class="list-panel" style="margin-top:1.5rem">
       <h2 class="section-title">סטטיסטיקות</h2>
@@ -158,6 +200,7 @@
 
   <script src="nav.js"></script>
   <script src="push.js"></script>
+  <script src="markdown.js"></script>
   <script>
     (async function () {
       // Auth guard — redirect if not admin.
@@ -510,9 +553,86 @@
       document.getElementById("logLimit").addEventListener("change", loadLogs);
       document.getElementById("refreshLogsBtn").addEventListener("click", loadLogs);
 
+      // ── Announcements (site popups) ──────────────────────────────────────────
+
+      const announceText = document.getElementById("announceText");
+      const announcePreview = document.getElementById("announcePreview");
+      const announceMsg = document.getElementById("announceMsg");
+
+      function renderPreview() {
+        const src = announceText.value.trim();
+        announcePreview.innerHTML = src
+          ? AnnounceMD.render(src)
+          : '<p style="color:var(--muted)">התצוגה המקדימה תופיע כאן…</p>';
+      }
+      announceText.addEventListener("input", renderPreview);
+      renderPreview();
+
+      async function loadAnnouncements() {
+        try {
+          const { announcements } = await (await fetch("/api/admin/announcements")).json();
+          const tbody = document.getElementById("announcementsTbody");
+          const empty = document.getElementById("announcementsEmpty");
+          tbody.innerHTML = "";
+          if (!announcements.length) { empty.classList.remove("hidden"); return; }
+          empty.classList.add("hidden");
+          for (const a of announcements) {
+            const fmt = (s) => new Date(s.replace(" ", "T") + "Z").toLocaleString("he-IL");
+            const preview = a.body.length > 60 ? a.body.slice(0, 60) + "…" : a.body;
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="mono">${a.id}</td>
+              <td style="font-size:0.85rem">${esc(preview)}</td>
+              <td style="font-size:0.8rem">${fmt(a.starts_at)}</td>
+              <td style="font-size:0.8rem">${fmt(a.ends_at)}</td>
+              <td>${a.active
+                ? '<span class="md-green">פעיל</span>'
+                : '<span class="md-muted">הסתיים</span>'}</td>
+              <td><button class="admin-btn danger-btn delete-announce-btn" data-id="${a.id}">מחק</button></td>`;
+            tbody.appendChild(tr);
+          }
+        } catch {
+          document.getElementById("announcementsEmpty").textContent = "תקלה בטעינת פופאפים.";
+          document.getElementById("announcementsEmpty").classList.remove("hidden");
+        }
+      }
+
+      document.getElementById("announceForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        announceMsg.textContent = "";
+        announceMsg.className = "form-msg";
+        const body = announceText.value.trim();
+        const hours = Number(document.getElementById("announceHours").value);
+        const res = await fetch("/api/admin/announcements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body, hours }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          announceMsg.textContent = data.error || "שגיאה בפרסום.";
+          announceMsg.className = "form-msg err";
+          return;
+        }
+        announceMsg.textContent = "הפופאפ פורסם!";
+        announceMsg.className = "form-msg ok";
+        announceText.value = "";
+        renderPreview();
+        loadAnnouncements();
+      });
+
+      document.getElementById("announcementsTbody").addEventListener("click", async (e) => {
+        const del = e.target.closest(".delete-announce-btn");
+        if (!del) return;
+        if (!confirm(`למחוק פופאפ #${del.dataset.id}?`)) return;
+        const res = await fetch(`/api/admin/announcements/${del.dataset.id}`, { method: "DELETE" });
+        if (!res.ok) { const { error } = await res.json().catch(() => ({})); alert(error || "שגיאה"); return; }
+        loadAnnouncements();
+      });
+
       // ── Initial load ───────────────────────────────────────────────────────
 
-      await Promise.all([loadMessages(), loadStats(), loadUsers(), loadRolls(), loadLogs()]);
+      await Promise.all([loadMessages(), loadStats(), loadUsers(), loadRolls(), loadLogs(), loadAnnouncements()]);
 
       setInterval(loadLogs, 10_000);
     })();

@@ -1,30 +1,43 @@
-// One-time announcement popup. Shows at most once per browser, and only while the
-// server reports the post-deploy window is still open (24h from deploy — see
-// /api/announce in server/rolls.js). The window is server-driven so it tracks the
-// actual deploy time rather than a date baked into this file. Bump STORAGE_KEY to
-// re-show a future announcement to everyone.
+// Site announcement popup. Asks the server for the currently-active announcement
+// (admins manage these in the dashboard), renders its markdown body, and shows it at
+// most once per browser — keyed by announcement id, so a new announcement shows again
+// but a dismissed one never re-appears. The active window (start/end) is enforced
+// server-side via /api/announce.
 (function () {
-  const STORAGE_KEY = "announce-seen-2026-06-15";
+  const STORAGE_KEY = "announce-seen-ids";
 
-  // Already seen on this browser? Skip the network check entirely.
-  try {
-    if (localStorage.getItem(STORAGE_KEY)) return;
-  } catch { /* storage unavailable — fall through and show once */ }
+  function seenIds() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+    catch { return []; }
+  }
+  function markSeen(id) {
+    try {
+      const ids = seenIds();
+      if (!ids.includes(id)) {
+        ids.push(id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+      }
+    } catch { /* storage unavailable — ignore */ }
+  }
 
   async function maybeShow() {
-    let active = false;
+    let announcement;
     try {
       const res = await fetch("/api/announce");
       if (!res.ok) return;
-      active = (await res.json()).active;
+      announcement = (await res.json()).announcement;
     } catch { return; /* network issue — don't show */ }
-    if (!active) return;
+    if (!announcement) return;
+    if (seenIds().includes(announcement.id)) return;
 
     const overlay = document.getElementById("announceModal");
-    if (!overlay) return;
+    const body = document.getElementById("announceBody");
+    if (!overlay || !body || !window.AnnounceMD) return;
 
-    // Mark as seen the moment it appears, so it never reappears for this browser.
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { /* ignore */ }
+    body.innerHTML = window.AnnounceMD.render(announcement.body);
+
+    // Mark seen the moment it appears, so it never re-shows for this browser.
+    markSeen(announcement.id);
     overlay.classList.remove("hidden");
 
     const dismiss = () => overlay.classList.add("hidden");
