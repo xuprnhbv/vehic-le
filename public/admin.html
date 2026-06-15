@@ -107,6 +107,7 @@
             <option>B</option>
             <option>C</option>
             <option>D</option>
+            <option>F</option>
           </select>
         </div>
       </div>
@@ -227,7 +228,7 @@
             cards.map(([label, val]) =>
               `<div class="stat-card"><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div>`
             ).join("") +
-            ["S","A","B","C","D"].map(t =>
+            ["S","A","B","C","D","F"].map(t =>
               `<div class="stat-card">
                 <div class="stat-value">${tierMap[t] ?? 0}</div>
                 <div class="stat-label"><span class="tier-pill tier-${t.toLowerCase()}">${t}</span></div>

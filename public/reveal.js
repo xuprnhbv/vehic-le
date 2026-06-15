@@ -9,11 +9,12 @@ window.Reveal = (function () {
   // Local tier thresholds — used ONLY to animate the badge as the running total
   // climbs during the count-up. The server still sends the authoritative final tier.
   function tierFor(score) {
-    if (score >= 90) return "S";
-    if (score >= 60) return "A";
-    if (score >= 30) return "B";
-    if (score >= 15) return "C";
-    return "D";
+    if (score >= 58) return "S";
+    if (score >= 40) return "A";
+    if (score >= 32) return "B";
+    if (score >= 25) return "C";
+    if (score >= 17) return "D";
+    return "F";
   }
 
   function pulseClassFor(points) {
@@ -98,7 +99,7 @@ window.Reveal = (function () {
     // Show badge at 0 from the start; accumulate score live
     const rating = ensureRatingNode(resultEl);
     const badge = rating.querySelector(".rating-badge");
-    badge.className = "rating-badge tier-d";
+    badge.className = "rating-badge tier-f";
     badge.textContent = "0";
     rating.querySelector(".rating-score").textContent = "";
 
@@ -107,7 +108,7 @@ window.Reveal = (function () {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     let runningScore = 0;
-    let currentTier = "D";
+    let currentTier = "F";
 
     function applyTierIfChanged(newScore) {
       const newTier = tierFor(newScore);

@@ -108,7 +108,7 @@ always single-use. Expired-but-unconsumed tokens are harmless (rejected on looku
 | `user_id` | INTEGER | FK → `users.id` (CASCADE DELETE) |
 | `plate_display` | TEXT | formatted plate string e.g. `12-345-67` |
 | `score` | INTEGER | server-authoritative final score |
-| `tier` | TEXT | S / A / B / C / D |
+| `tier` | TEXT | S / A / B / C / D / F |
 | `payload_json` | TEXT | full JSON of the roll payload |
 | `created_at` | TEXT | ISO datetime |
 

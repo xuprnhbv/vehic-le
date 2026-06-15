@@ -868,12 +868,18 @@ function scorePlate(digits) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Percentile-based tiers, calibrated from a full 4,133,963-row fleet survey
+// (scripts/survey-fleet.js, June 2026): top 1% → S, next 9% → A, next 20% → B,
+// next 30% → C, next 30% → D, bottom 10% → F. Integer score clustering means the
+// splits land at 1.1 / 9.7 / 19.6 / 29.2 / 30.5 / 9.9 % — the closest achievable
+// to 1/9/20/30/30/10 (the C/D cutoff is nudged off the raw P40 to balance the pair).
 function tierFor(score) {
-  if (score >= 90) return "S";
-  if (score >= 60) return "A";
-  if (score >= 30) return "B";
-  if (score >= 15) return "C";
-  return "D";
+  if (score >= 58) return "S";
+  if (score >= 40) return "A";
+  if (score >= 32) return "B";
+  if (score >= 25) return "C";
+  if (score >= 17) return "D";
+  return "F";
 }
 
 function scoreRecord(record, plateDigits) {
