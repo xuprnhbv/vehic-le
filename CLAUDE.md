@@ -62,8 +62,11 @@ datastore is the source of plate records only. No automated test suite.
 
 Logged-in users earn a **streak bonus** for rolling on consecutive days. The streak is
 *never* stored as a counter — [`getCurrentStreak`](server/db.js) derives it at roll time by
-walking back over the user's distinct roll dates (UTC, matching `date('now')`), so an
-in-progress streak is always real. The bonus comes from [`streakBonus`](server/scoring.js)
+walking back over the user's distinct roll dates (Israel calendar days — `date()`
+shifted by Israel's live, DST-aware UTC offset via `israelOffset`), so an
+in-progress streak is always real. The roll "day" resets at midnight Israel time, not
+UTC; every `date(created_at) = date('now')` comparison in [`server/db.js`](server/db.js)
+applies the same Israel offset. The bonus comes from [`streakBonus`](server/scoring.js)
 (Standard curve: +2/day, capped at day 20, plus milestone jumps at 7/30/100 days).
 
 The bonus is added to the player's **overall score** (`users.total_score`) and to the
