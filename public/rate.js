@@ -23,9 +23,11 @@ function showMsg(text, color) {
 shareBtn.addEventListener("click", async () => {
   if (!currentRoll) return;
   const { tier, score, plate } = currentRoll;
+  const details = Reveal.shareDetailLines(currentRoll);
   const text =
     `הרכב שלי 🚗 ${plate.display}\n\n` +
     `${TIER_EMOJI[tier] ?? "⭐"} Tier ${tier} - ${score} נקודות\n\n` +
+    `${details}\n\n` +
     `דרגו את הרכב שלכם:\n${RATE_URL}`;
   if (navigator.share) {
     try { await navigator.share({ text }); } catch { /* user dismissed */ }

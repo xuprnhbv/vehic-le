@@ -866,6 +866,20 @@ function scorePlate(digits) {
   return { pts, perks: matched };
 }
 
+// ── Daily streak bonus ──────────────────────────────────────────────────────
+// Extra points for rolling on consecutive days. Added to the player's *overall*
+// score (and the cumulative leaderboards) — never to the plate score or tier.
+// "Standard" curve: linear +2/day (caps at day 20) with milestone jumps.
+// day1=+1, day2=+3, day7=+18, day30=+69, day100=+144.
+function streakBonus(streak) {
+  if (streak <= 0) return 0;
+  let bonus = 1 + (Math.min(streak, 20) - 1) * 2;
+  if (streak >= 7) bonus += 5;
+  if (streak >= 30) bonus += 25;
+  if (streak >= 100) bonus += 75;
+  return bonus;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Percentile-based tiers, calibrated from a full 4,133,963-row fleet survey
@@ -934,4 +948,4 @@ function getPerkDescriptions() {
   return PLATE_PERKS.map(({ name, desc }) => ({ name, desc }));
 }
 
-module.exports = { buildRollPayload, scoreRecord, tierFor, formatPlate, getPerkDescriptions };
+module.exports = { buildRollPayload, scoreRecord, tierFor, formatPlate, getPerkDescriptions, streakBonus };
