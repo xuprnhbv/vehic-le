@@ -62,6 +62,10 @@ const randPlate = () =>
 // scorer — and brute-force the plate digits until the resulting tier matches the
 // band we want. S is pinned to a monodigit plate so it stacks many plate perks.
 const TODAY_YEAR = new Date().getFullYear();
+// A license that expires in ~10 days scores the minimum validity points (1), vs ~8
+// for a full year of remaining validity. The D-tier profile uses this so its fixed
+// fields can stay under the 15-point C floor even as scoring drifts upward.
+const NEAR_EXPIRY = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
 
 function recordFor(profile, digits) {
   return {
@@ -72,7 +76,7 @@ function recordFor(profile, digits) {
     tzeva_rechev: profile.color,
     sug_delek_nm: profile.fuel,
     moed_aliya_lakvish: `${profile.year}-01-01`,
-    tokef_dt: `${TODAY_YEAR + 1}-01-01`,
+    tokef_dt: profile.tokef ?? `${TODAY_YEAR + 1}-01-01`,
   };
 }
 
@@ -97,7 +101,7 @@ const PLAN = [
   { owner: admin, profile: { tozeret: "ב מ וו",  kinuy: "M3 COMPETITION", year: 2014, color: "כחול",  fuel: "חשמל/בנזין" }, band: [60, 89] },
   { owner: user,  profile: { tozeret: "מרצדס",   kinuy: "GLC",           year: 2017, color: "אדום",  fuel: "דיזל" },       band: [30, 59] },
   { owner: admin, profile: { tozeret: "מזדה",    kinuy: "MAZDA 3",        year: 2021, color: "כסף",   fuel: "בנזין" },      band: [15, 29] },
-  { owner: user,  profile: { tozeret: "טויוטה",  kinuy: "COROLLA",        year: TODAY_YEAR, color: "לבן", fuel: "בנזין" },  band: [0, 14], opts: { wantPerks: 0 } },
+  { owner: user,  profile: { tozeret: "טויוטה",  kinuy: "COROLLA",        year: TODAY_YEAR, color: "לבן", fuel: "בנזין", tokef: NEAR_EXPIRY },  band: [0, 14], opts: { wantPerks: 0 } },
 ];
 
 for (const { owner, profile, band, opts } of PLAN) {
