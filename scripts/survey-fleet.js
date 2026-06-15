@@ -76,6 +76,7 @@ const counts = Object.fromEntries(FIELDS.map((f) => [f, new Map()]));
 const perkCounts = new Map(); // perk name → times it fired
 const tierCounts = new Map(); // S/A/B/C/D → count
 const scoreBuckets = new Map(); // "0-9","10-19",… → count
+const scoreExact = new Map(); // exact score → count (for percentile-based tier cutoffs)
 let sampled = 0;
 
 function bump(map, key) {
@@ -94,6 +95,7 @@ function record(row) {
       const payload = buildRollPayload(row);
       for (const p of payload.platePerks) bump(perkCounts, p.name);
       bump(tierCounts, payload.tier);
+      bump(scoreExact, payload.score);
       const lo = Math.floor(payload.score / 10) * 10;
       bump(scoreBuckets, `${lo}-${lo + 9}`);
     } catch {
@@ -186,6 +188,10 @@ function buildOutput(datasetTotal) {
     scoreHistogram: [...scoreBuckets.entries()]
       .sort((a, b) => Number(a[0].split("-")[0]) - Number(b[0].split("-")[0]))
       .map(([range, count]) => ({ range, count, pct: Number(((count / sampled) * 100).toFixed(4)) })),
+    // Exact per-score counts, ascending — enables precise percentile tier cutoffs.
+    scoreDistribution: [...scoreExact.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([score, count]) => ({ score, count, pct: Number(((count / sampled) * 100).toFixed(4)) })),
   };
 }
 

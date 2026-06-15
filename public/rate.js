@@ -3,7 +3,7 @@
 // count-up (no slot-reel spin — the digits are already known). Nothing is saved.
 
 const RATE_URL = window.location.origin + "/rate.html";
-const TIER_EMOJI = { S: "🌟", A: "🟣", B: "🔵", C: "🟢", D: "⚪" };
+const TIER_EMOJI = { S: "🌟", A: "🟣", B: "🔵", C: "🟢", D: "⚪", F: "💀" };
 
 const form = document.getElementById("rateForm");
 const plateInput = document.getElementById("plateInput");

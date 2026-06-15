@@ -2,7 +2,7 @@
 // scores it; we just fetch the finished payload from /api/roll and play it back.
 
 const GAME_URL = window.location.origin + '/';
-const TIER_EMOJI = { S: '🌟', A: '🟣', B: '🔵', C: '🟢', D: '⚪' };
+const TIER_EMOJI = { S: '🌟', A: '🟣', B: '🔵', C: '🟢', D: '⚪', F: '💀' };
 
 const plateEl = document.getElementById("plate");
 const rollBtn = document.getElementById("rollBtn");

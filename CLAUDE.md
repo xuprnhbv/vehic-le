@@ -127,7 +127,7 @@ always single-use. Expired-but-unconsumed tokens are harmless (rejected on looku
 | `user_id` | INTEGER | FK → `users.id` (CASCADE DELETE) |
 | `plate_display` | TEXT | formatted plate string e.g. `12-345-67` |
 | `score` | INTEGER | server-authoritative **plate** score (no streak bonus) |
-| `tier` | TEXT | S / A / B / C / D (from the plate score) |
+| `tier` | TEXT | S / A / B / C / D / F (from the plate score) |
 | `payload_json` | TEXT | full JSON of the roll payload (incl. `streak`/`streakBonus`) |
 | `streak` | INTEGER | consecutive-day count for this roll (1 = no streak) |
 | `streak_bonus` | INTEGER | points the streak added to the user's total (not to `score`) |
