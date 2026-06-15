@@ -14,6 +14,40 @@ const db = new DatabaseSync(path.join(DATA_DIR, "app.db"));
 db.exec("PRAGMA journal_mode = WAL");
 db.exec("PRAGMA foreign_keys = ON");
 
+// ── Roll "days" reset at midnight Israel time, not UTC ─────────────────────────
+// created_at is stored as UTC (datetime('now')). To bucket rolls by the Israel
+// calendar day, we shift both 'now' and created_at by Israel's current UTC offset
+// before calling date(). The offset is computed live so it follows DST (UTC+2 in
+// winter, UTC+3 in summer). A roll made in a different DST period than "now" can
+// be mislabeled by an hour right at the midnight boundary — a rare edge we accept.
+const ISRAEL_TZ = "Asia/Jerusalem";
+
+function israelOffsetMinutes(at = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: ISRAEL_TZ, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  })
+    .formatToParts(at)
+    .reduce((o, p) => ((o[p.type] = p.value), o), {});
+  const asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return Math.round((asUTC - at.getTime()) / 60000);
+}
+
+// A SQLite date() modifier string (e.g. "+180 minutes") that converts a UTC
+// timestamp to the Israel wall clock. Fully derived from Intl numeric output, so
+// it is safe to embed directly into SQL.
+function israelOffset() {
+  const m = israelOffsetMinutes();
+  return `${m >= 0 ? "+" : "-"}${Math.abs(m)} minutes`;
+}
+
+// Today's date as a 'YYYY-MM-DD' string on the Israel calendar (matches
+// date('now', israelOffset()) in SQL).
+function israelToday() {
+  return new Date(Date.now() + israelOffsetMinutes() * 60000).toISOString().slice(0, 10);
+}
+
 // Idempotent schema — safe to run on every boot.
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -158,32 +192,35 @@ function consumeVerifyToken(token) {
 // ── Rolls (history & leaderboard) ─────────────────────────────────────────────
 
 function hasRolledToday(userId) {
+  const off = israelOffset();
   const row = db
-    .prepare(`SELECT 1 FROM rolls WHERE user_id = ? AND date(created_at) = date('now') LIMIT 1`)
+    .prepare(`SELECT 1 FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}') LIMIT 1`)
     .get(userId);
   return row != null;
 }
 
 function getTodayRoll(userId) {
+  const off = israelOffset();
   return db
     .prepare(
-      `SELECT payload_json FROM rolls WHERE user_id = ? AND date(created_at) = date('now') ORDER BY created_at DESC LIMIT 1`
+      `SELECT payload_json FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}') ORDER BY created_at DESC LIMIT 1`
     )
     .get(userId);
 }
 
-// Consecutive UTC days the user has rolled, counting today's roll (which is about
-// to be inserted, so it is not yet in `rolls` when this is called from /api/roll).
-// Walks backward from yesterday using UTC date strings to match SQLite's date()
-// (UTC), consistent with hasRolledToday and the push-reminder logic.
+// Consecutive Israel-calendar days the user has rolled, counting today's roll
+// (which is about to be inserted, so it is not yet in `rolls` when this is called
+// from /api/roll). Walks backward from yesterday using Israel date strings to match
+// the Israel-shifted date() above, consistent with hasRolledToday.
 function getCurrentStreak(userId) {
+  const off = israelOffset();
   const rows = db
-    .prepare(`SELECT DISTINCT date(created_at) AS d FROM rolls WHERE user_id = ?`)
+    .prepare(`SELECT DISTINCT date(created_at, '${off}') AS d FROM rolls WHERE user_id = ?`)
     .all(userId);
   const have = new Set(rows.map((r) => r.d));
   let streak = 1; // today's roll being made now
-  const cur = new Date();
-  cur.setUTCDate(cur.getUTCDate() - 1); // start at yesterday
+  const cur = new Date(israelToday() + "T00:00:00Z");
+  cur.setUTCDate(cur.getUTCDate() - 1); // start at yesterday (Israel calendar)
   while (have.has(cur.toISOString().slice(0, 10))) {
     streak++;
     cur.setUTCDate(cur.getUTCDate() - 1);
@@ -228,12 +265,13 @@ function getUserTotalScore(userId) {
 }
 
 function getTodayRank(userId) {
+  const off = israelOffset();
   const myRow = db
-    .prepare(`SELECT score FROM rolls WHERE user_id = ? AND date(created_at) = date('now') ORDER BY created_at DESC LIMIT 1`)
+    .prepare(`SELECT score FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}') ORDER BY created_at DESC LIMIT 1`)
     .get(userId);
   if (!myRow) return null;
   const { rank } = db
-    .prepare(`SELECT COUNT(*) + 1 AS rank FROM rolls WHERE date(created_at) = date('now') AND score > ?`)
+    .prepare(`SELECT COUNT(*) + 1 AS rank FROM rolls WHERE date(created_at, '${off}') = date('now', '${off}') AND score > ?`)
     .get(myRow.score);
   return rank;
 }
@@ -243,11 +281,12 @@ function getTodayRank(userId) {
 // plate/tier/payload shown come from that user's single best roll (see below).
 function getLeaderboard(limit = 50, period = 'today') {
   if (period === 'today') {
+    const off = israelOffset();
     return db
       .prepare(
         `SELECT u.username, r.plate_display, r.score, r.tier, r.created_at, r.payload_json
          FROM rolls r JOIN users u ON u.id = r.user_id
-         WHERE date(r.created_at) = date('now')
+         WHERE date(r.created_at, '${off}') = date('now', '${off}')
          ORDER BY r.score DESC, r.created_at ASC LIMIT ?`
       )
       .all(limit);
@@ -308,23 +347,24 @@ function deleteSubscriptionById(id) {
 }
 
 // Subscriptions whose owner has not rolled today and who haven't already been
-// reminded today. Dates use UTC date('now') — at the 09:00 Israel send time the
-// UTC calendar date matches Israel's, staying consistent with the roll daily-limit.
+// reminded today. "Today" is the Israel calendar day, matching the roll daily-limit.
 function getSubscriptionsToRemind() {
+  const off = israelOffset();
   return db
     .prepare(
       `SELECT s.id, s.endpoint, s.p256dh, s.auth
        FROM push_subscriptions s
        WHERE NOT EXISTS (
                SELECT 1 FROM rolls r
-               WHERE r.user_id = s.user_id AND date(r.created_at) = date('now'))
-         AND (s.last_notified_date IS NULL OR s.last_notified_date <> date('now'))`
+               WHERE r.user_id = s.user_id AND date(r.created_at, '${off}') = date('now', '${off}'))
+         AND (s.last_notified_date IS NULL OR s.last_notified_date <> date('now', '${off}'))`
     )
     .all();
 }
 
 function markSubscriptionNotified(id) {
-  db.prepare(`UPDATE push_subscriptions SET last_notified_date = date('now') WHERE id = ?`).run(id);
+  const off = israelOffset();
+  db.prepare(`UPDATE push_subscriptions SET last_notified_date = date('now', '${off}') WHERE id = ?`).run(id);
 }
 
 function getUserSubscriptions(userId) {
@@ -336,23 +376,25 @@ function getUserSubscriptions(userId) {
 // ── Admin helpers ─────────────────────────────────────────────────────────────
 
 function getAdminStats() {
+  const off = israelOffset();
   const totalUsers  = db.prepare(`SELECT COUNT(*) AS n FROM users`).get().n;
-  const newToday    = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE date(created_at) = date('now')`).get().n;
+  const newToday    = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE date(created_at, '${off}') = date('now', '${off}')`).get().n;
   const newLast7    = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE created_at >= datetime('now', '-7 days')`).get().n;
   const newLast30   = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE created_at >= datetime('now', '-30 days')`).get().n;
   const totalRolls  = db.prepare(`SELECT COUNT(*) AS n FROM rolls`).get().n;
-  const rollsToday  = db.prepare(`SELECT COUNT(*) AS n FROM rolls WHERE date(created_at) = date('now')`).get().n;
+  const rollsToday  = db.prepare(`SELECT COUNT(*) AS n FROM rolls WHERE date(created_at, '${off}') = date('now', '${off}')`).get().n;
   const rollsLast7  = db.prepare(`SELECT COUNT(*) AS n FROM rolls WHERE created_at >= datetime('now', '-7 days')`).get().n;
-  const activeToday = db.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM rolls WHERE date(created_at) = date('now')`).get().n;
+  const activeToday = db.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM rolls WHERE date(created_at, '${off}') = date('now', '${off}')`).get().n;
   const tierDist    = db.prepare(`SELECT tier, COUNT(*) AS cnt FROM rolls GROUP BY tier`).all();
   return { totalUsers, newToday, newLast7, newLast30, totalRolls, rollsToday, rollsLast7, activeToday, tierDist };
 }
 
 function getAllUsers() {
+  const off = israelOffset();
   return db.prepare(`
     SELECT u.id, u.username, u.email, u.email_verified, u.is_admin, u.created_at,
            COUNT(r.id) AS roll_count,
-           EXISTS(SELECT 1 FROM rolls t WHERE t.user_id = u.id AND date(t.created_at) = date('now')) AS rolled_today
+           EXISTS(SELECT 1 FROM rolls t WHERE t.user_id = u.id AND date(t.created_at, '${off}') = date('now', '${off}')) AS rolled_today
     FROM users u
     LEFT JOIN rolls r ON r.user_id = u.id
     GROUP BY u.id
@@ -361,11 +403,12 @@ function getAllUsers() {
 }
 
 function searchUsers(query) {
+  const off = israelOffset();
   const like = `%${query}%`;
   return db.prepare(`
     SELECT u.id, u.username, u.email, u.email_verified, u.is_admin, u.created_at,
            COUNT(r.id) AS roll_count,
-           EXISTS(SELECT 1 FROM rolls t WHERE t.user_id = u.id AND date(t.created_at) = date('now')) AS rolled_today
+           EXISTS(SELECT 1 FROM rolls t WHERE t.user_id = u.id AND date(t.created_at, '${off}') = date('now', '${off}')) AS rolled_today
     FROM users u
     LEFT JOIN rolls r ON r.user_id = u.id
     WHERE u.username LIKE ? OR u.email LIKE ?
@@ -409,13 +452,14 @@ function deleteRoll(rollId) {
 }
 
 function deleteTodayRoll(userId) {
+  const off = israelOffset();
   const row = db.prepare(
     `SELECT COALESCE(SUM(score) + SUM(streak_bonus), 0) AS s
-     FROM rolls WHERE user_id = ? AND date(created_at) = date('now')`
+     FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}')`
   ).get(userId);
   db.exec("BEGIN");
   try {
-    db.prepare(`DELETE FROM rolls WHERE user_id = ? AND date(created_at) = date('now')`).run(userId);
+    db.prepare(`DELETE FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}')`).run(userId);
     if (row.s > 0) {
       db.prepare(`UPDATE users SET total_score = MAX(0, total_score - ?) WHERE id = ?`).run(row.s, userId);
     }
