@@ -133,6 +133,7 @@ window.addEventListener("auth:loggedOut", () => {
   resultFields.innerHTML = "";
   const rating = document.getElementById("rating");
   if (rating) rating.remove();
+  resultEl.querySelector(".streak")?.remove();
   statusEl.textContent = "";
   rollBtn.disabled = false;
   shareBtn.classList.add("hidden");
