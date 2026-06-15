@@ -409,11 +409,18 @@ dd {
   }
 }
 
-.rating-score {
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.6;
+/* Tier letter under the score badge — the score stays the headline; this is a
+   compact secondary cue of which tier (S/A/B/C/D/F) that score lands in. */
+.rating-tier.tier-pill {
+  font-size: 1.1rem;
+  min-width: 2em;
+  padding: 0.15rem 0.7rem;
+  letter-spacing: 0.04em;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+.rating-tier.tier-pop {
+  animation: badge-tier-up 0.55s ease;
 }
 
 /* ------- Plate digit reveal ------- */

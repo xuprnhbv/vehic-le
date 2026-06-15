@@ -121,7 +121,7 @@ window.Reveal = (function () {
       rating.innerHTML = `
         <div class="rating-label">דירוג נדירות</div>
         <div class="rating-badge"></div>
-        <div class="rating-score"></div>
+        <div class="rating-tier tier-pill"></div>
       `;
       resultEl.insertBefore(rating, resultEl.firstChild);
     }
@@ -174,7 +174,9 @@ window.Reveal = (function () {
     const badge = rating.querySelector(".rating-badge");
     badge.className = "rating-badge tier-f";
     badge.textContent = "0";
-    rating.querySelector(".rating-score").textContent = "";
+    const tierPill = rating.querySelector(".rating-tier");
+    tierPill.className = "rating-tier tier-pill tier-f";
+    tierPill.textContent = "F";
 
     resultEl.classList.remove("hidden");
     // Force a paint so the initial .field-hidden state commits before we trigger the transition.
@@ -189,6 +191,9 @@ window.Reveal = (function () {
         currentTier = newTier;
         badge.className = `rating-badge tier-${newTier.toLowerCase()} badge-tier-up`;
         setTimeout(() => badge.classList.remove("badge-tier-up"), 550);
+        tierPill.className = `rating-tier tier-pill tier-${newTier.toLowerCase()} tier-pop`;
+        tierPill.textContent = newTier;
+        setTimeout(() => tierPill.classList.remove("tier-pop"), 550);
       }
     }
 
@@ -274,7 +279,9 @@ window.Reveal = (function () {
     const badge = rating.querySelector(".rating-badge");
     badge.className = `rating-badge tier-${payload.tier.toLowerCase()}`;
     badge.textContent = String(payload.score);
-    rating.querySelector(".rating-score").textContent = "";
+    const tierPill = rating.querySelector(".rating-tier");
+    tierPill.className = `rating-tier tier-pill tier-${payload.tier.toLowerCase()}`;
+    tierPill.textContent = payload.tier;
 
     renderStreak(payload, resultEl, false);
 
