@@ -22,7 +22,8 @@ shareBtn.addEventListener("click", async () => {
   if (!currentRoll) return;
   const { tier, score, plate, rank } = currentRoll;
   const rankStr = rank != null ? `(#${rank} today)` : '(unranked)';
-  const text = `Vehic-le 🚕 ${plate.display} 🚕\n\n${TIER_EMOJI[tier] ?? '⭐'} Tier ${tier} - ${score} points ${rankStr}\n\n${GAME_URL}`;
+  const details = Reveal.shareDetailLines(currentRoll);
+  const text = `Vehic-le 🚕 ${plate.display} 🚕\n\n${TIER_EMOJI[tier] ?? '⭐'} Tier ${tier} - ${score} points ${rankStr}\n\n${details}\n\n${GAME_URL}`;
   if (navigator.share) {
     try { await navigator.share({ text }); } catch { /* user dismissed */ }
   } else {

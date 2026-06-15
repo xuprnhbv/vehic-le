@@ -77,6 +77,25 @@ window.Reveal = (function () {
     return el;
   }
 
+  // Colored circle for a per-field score, matching the on-screen pulse colors
+  // (min→grey, low→blue, mid→purple, high→gold) so a shared score carries the
+  // same at-a-glance rarity cues as the page.
+  function pointEmoji(points) {
+    if (points >= 20) return "🟡";
+    if (points >= 10) return "🟣";
+    if (points >= 3) return "🔵";
+    return "⚪";
+  }
+
+  // One colored line per scored detail (יצרן, דגם, שנת ייצור…) for share text.
+  // The circle's color signals how rare/valuable that detail is — no need to
+  // spell out the points.
+  function shareDetailLines(payload) {
+    return payload.fields
+      .map((f) => `${pointEmoji(f.points ?? 0)} ${f.label}: ${f.value}`)
+      .join("\n");
+  }
+
   function countUp(el, from, to, duration, format) {
     return new Promise((resolve) => {
       const start = performance.now();
@@ -261,5 +280,5 @@ window.Reveal = (function () {
     resultEl.classList.remove("hidden");
   }
 
-  return { tierFor, pulseClassFor, countUp, ensureRatingNode, revealScoring, showResultInstant, renderStreak, streakTier };
+  return { tierFor, pulseClassFor, pointEmoji, shareDetailLines, countUp, ensureRatingNode, revealScoring, showResultInstant, renderStreak, streakTier };
 })();
