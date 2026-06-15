@@ -16,6 +16,18 @@ router.get("/perks", (_req, res) => {
   res.json({ perks: PERK_DESCRIPTIONS });
 });
 
+// The currently-active site popup, if any. Admins create these in the dashboard with a
+// markdown body and a duration; this returns the newest one whose window is still open.
+// The client renders the markdown and shows it at most once per browser, keyed by id.
+router.get("/announce", (_req, res, next) => {
+  try {
+    const a = db.getActiveAnnouncement();
+    res.json({ announcement: a ? { id: a.id, body: a.body } : null });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Today's roll for the current user, if any (full payload so the client can display it).
 router.get("/me/today", requireAuth, (req, res, next) => {
   try {

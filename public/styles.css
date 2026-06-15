@@ -990,6 +990,109 @@ dd {
   cursor: pointer;
 }
 
+/* ------- Announcement popup ------- */
+.announce-modal {
+  max-width: 440px;
+  text-align: center;
+}
+
+.announce-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.5rem 0 1.25rem;
+  line-height: 1.6;
+}
+
+.announce-body p { margin: 0; }
+
+/* Markdown color spans (see public/markdown.js). Whitelisted names only. */
+.md-accent { color: var(--accent); }
+.md-green  { color: #4ade80; }
+.md-blue   { color: #60a5fa; }
+.md-red    { color: #f87171; }
+.md-muted  { color: var(--muted); }
+
+.announce-modal .auth-submit { width: 100%; }
+
+/* Admin: announcement composer */
+.announce-admin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.announce-form { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.announce-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.announce-form textarea {
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem;
+}
+
+.announce-form-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.announce-form-row label { flex: 1; }
+
+.announce-form-row input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.announce-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.8;
+}
+
+.announce-hint code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.8rem;
+}
+
+.announce-preview-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.announce-preview-wrap .announce-body {
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .announce-admin { grid-template-columns: 1fr; }
+}
+
 .tabs {
   display: flex;
   gap: 0.5rem;

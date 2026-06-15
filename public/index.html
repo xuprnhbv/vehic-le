@@ -95,12 +95,24 @@
       </div>
     </div>
 
+    <!-- Site announcement popup. Body is filled at runtime from /api/announce
+         (admin-managed); shown at most once per browser, keyed by announcement id. -->
+    <div id="announceModal" class="modal-overlay hidden">
+      <div class="modal announce-modal">
+        <button type="button" class="modal-close" id="announceClose" aria-label="סגור">×</button>
+        <div class="announce-body" id="announceBody"></div>
+        <button type="button" class="auth-submit" id="announceOk">יאללה, בואו נגלגל</button>
+      </div>
+    </div>
+
   <footer class="site-footer">
     <nav class="footer-links">
       <a href="/contact.html" class="footer-link">צרו איתי קשר</a>
     </nav>
   </footer>
 
+  <script src="markdown.js"></script>
+  <script src="announce.js"></script>
   <script src="auth.js"></script>
   <script src="push.js"></script>
   <script src="perks.js"></script>

@@ -28,12 +28,14 @@ server/
   session-store.js  custom express-session store backed by the same node:sqlite db
   auth.js        passport (local + Google) strategies and /api/auth/* routes
   mailer.js      nodemailer SMTP verification email; falls back to console log in dev
-  rolls.js       GET /api/me/history, /api/leaderboard, /api/perks (read-only)
+  rolls.js       GET /api/me/history, /api/leaderboard, /api/perks, /api/announce (read-only)
 public/          static client, served as-is
-  index.html     roll page + login/register modal (Hebrew, RTL)
+  index.html     roll page + login/register modal + announcement popup (Hebrew, RTL)
   styles.css     all styles: slot-reel/count-up animations + auth/table UI
   app.js         roll animation only — fetches /api/roll and plays it back
   perks.js       shared perk-chip factory + tap-to-show description popover (uses /api/perks)
+  announce.js    site popup: fetches /api/announce, renders it, shows once per browser (by id)
+  markdown.js    tiny safe markdown → HTML (bold/italic/{color|…}); shared by popup + admin preview
   auth.js        auth header, modal tabs, verification/OAuth redirect notices
   history.html   logged-in user's saved rolls, newest first
   leaderboard.html  global top-50 rolls, sorted by score desc
@@ -148,6 +150,35 @@ leaderboard. Anonymous rolls are never written here. `users.total_score` =
 | `expires_at` | INTEGER | Unix-ms timestamp; rows past this are ignored and purged |
 
 Managed entirely by `session-store.js` — do not write to this table directly.
+
+### `announcements`
+| column | type | notes |
+|---|---|---|
+| `id` | INTEGER PK | auto-increment; also the client's once-per-browser key |
+| `body` | TEXT | markdown source (see [public/markdown.js](public/markdown.js)) |
+| `starts_at` | TEXT | datetime (UTC); defaults to creation time |
+| `ends_at` | TEXT | datetime (UTC); popup hidden once `datetime('now')` passes this |
+| `created_at` | TEXT | ISO datetime (SQLite default) |
+
+Admins create these in the dashboard (body + duration in hours). `getActiveAnnouncement`
+returns the **newest** row whose `[starts_at, ends_at]` window is open; the public
+`GET /api/announce` exposes only `{ id, body }`. The client renders the markdown and shows
+it at most once per browser, keyed by `id` in `localStorage` (`announce-seen-ids`) — a new
+announcement re-triggers, a dismissed one never does. See [`How announcements flow`](#how-announcements-flow).
+
+## How announcements flow
+
+1. An admin composes a popup in the dashboard ([public/admin.html](public/admin.html)): markdown
+   body + how many hours it stays live. A live preview (shared renderer) shows exactly what
+   visitors will see. `POST /api/admin/announcements` stores it with `ends_at = now + hours`.
+2. On every page load, [public/announce.js](public/announce.js) calls `GET /api/announce`.
+   The server returns the active announcement (or null) — the **window is enforced
+   server-side**, so an expired popup never reaches the client.
+3. If there's an active one whose `id` isn't already in the browser's `announce-seen-ids`,
+   the client renders its markdown into the modal, shows it, and records the `id`.
+4. Markdown is intentionally tiny and **HTML-escaped first** ([public/markdown.js](public/markdown.js)):
+   `**bold**`, `*italic*`, `{accent|…}`/`{green|…}`/`{blue|…}`/`{red|…}`/`{muted|…}` color
+   spans (whitelisted names only), blank line = paragraph. The body can't inject markup.
 
 ## Conventions & gotchas
 

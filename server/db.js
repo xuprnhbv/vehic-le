@@ -102,6 +102,14 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(is_read, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS announcements (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    body       TEXT NOT NULL,                              -- markdown source (see public/markdown.js)
+    starts_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    ends_at    TEXT NOT NULL,                              -- popup hidden once datetime('now') passes this
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // Additive migration: add is_admin column if this is an existing database.
@@ -501,6 +509,48 @@ function deleteMessage(messageId) {
   db.prepare(`DELETE FROM messages WHERE id = ?`).run(messageId);
 }
 
+// ── Announcements (site popups) ─────────────────────────────────────────────────
+
+// Window stored as [starts_at, ends_at]. starts_at defaults to now; ends_at is now +
+// the admin-chosen duration. Times use SQLite's datetime() (UTC, 'YYYY-MM-DD HH:MM:SS')
+// so they compare directly against datetime('now') — same convention as the rest of the
+// schema. The duration arrives as whole minutes so it survives the SQL modifier cleanly.
+function createAnnouncement({ body, minutes }) {
+  const info = db
+    .prepare(`INSERT INTO announcements (body, ends_at) VALUES (?, datetime('now', ?))`)
+    .run(body, `+${minutes} minutes`);
+  return getAnnouncementById(info.lastInsertRowid);
+}
+
+function getAnnouncementById(id) {
+  return db.prepare(`SELECT id, body, starts_at, ends_at, created_at FROM announcements WHERE id = ?`).get(id);
+}
+
+// The single announcement to show right now: the newest whose window is currently open.
+function getActiveAnnouncement() {
+  return db
+    .prepare(
+      `SELECT id, body FROM announcements
+       WHERE datetime('now') BETWEEN starts_at AND ends_at
+       ORDER BY id DESC LIMIT 1`
+    )
+    .get();
+}
+
+function getAllAnnouncements(limit = 100) {
+  return db
+    .prepare(
+      `SELECT id, body, starts_at, ends_at, created_at,
+              (datetime('now') BETWEEN starts_at AND ends_at) AS active
+       FROM announcements ORDER BY id DESC LIMIT ?`
+    )
+    .all(limit);
+}
+
+function deleteAnnouncement(id) {
+  db.prepare(`DELETE FROM announcements WHERE id = ?`).run(id);
+}
+
 module.exports = {
   db,
   createUser,
@@ -539,4 +589,8 @@ module.exports = {
   countUnreadMessages,
   setMessageRead,
   deleteMessage,
+  createAnnouncement,
+  getActiveAnnouncement,
+  getAllAnnouncements,
+  deleteAnnouncement,
 };
