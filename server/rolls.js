@@ -16,6 +16,16 @@ router.get("/perks", (_req, res) => {
   res.json({ perks: PERK_DESCRIPTIONS });
 });
 
+// One-time announcement window. A Fly deploy restarts the process, so process boot
+// time ≈ deploy time — this lets the post-deploy popup honor "24h from deploy" without
+// baking a fixed date into the client (which would already be stale by the time we
+// actually deploy). The client still shows it at most once per browser via localStorage.
+const ANNOUNCE_BOOT_TIME = Date.now();
+const ANNOUNCE_WINDOW_MS = 24 * 60 * 60 * 1000;
+router.get("/announce", (_req, res) => {
+  res.json({ active: Date.now() < ANNOUNCE_BOOT_TIME + ANNOUNCE_WINDOW_MS });
+});
+
 // Today's roll for the current user, if any (full payload so the client can display it).
 router.get("/me/today", requireAuth, (req, res, next) => {
   try {

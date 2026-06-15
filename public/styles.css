@@ -990,6 +990,35 @@ dd {
   cursor: pointer;
 }
 
+/* ------- Announcement popup ------- */
+.announce-modal {
+  max-width: 440px;
+  text-align: center;
+}
+
+.announce-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.5rem 0 1.25rem;
+  line-height: 1.6;
+}
+
+.announce-body p { margin: 0; }
+
+.announce-greeting {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.announce-signoff {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.announce-modal .auth-submit { width: 100%; }
+
 .tabs {
   display: flex;
   gap: 0.5rem;

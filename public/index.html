@@ -95,12 +95,27 @@
       </div>
     </div>
 
+    <!-- One-time announcement popup (shown once per browser, only within 24h of deploy) -->
+    <div id="announceModal" class="modal-overlay hidden">
+      <div class="modal announce-modal">
+        <button type="button" class="modal-close" id="announceClose" aria-label="סגור">×</button>
+        <div class="announce-body">
+          <p class="announce-greeting">היי!</p>
+          <p>כנראה שמתם לב שבזמן האחרון כל הגלגולים של כולם נוחתים בין דירוג D ל-C ולפעמים B אבל אף פעם לא A או S. בגלל זה, עשיתי שינוי באיך שדירוג מחושב - עכשיו הדרגים הגבוהים אמנם יהיו נדירים, אבל נראה אותם :)</p>
+          <p>בנוסף, הוספתי אקסטרה ניקוד שתקבלו על רצף ימים שבהם תגלגלו! הדירוג לא נחשב למכונית עצמה, אבל ייכנס לדירוג הכולל של המשתמש שלכם</p>
+          <p class="announce-signoff">גלגלו בכיף!</p>
+        </div>
+        <button type="button" class="auth-submit" id="announceOk">יאללה, בואו נגלגל</button>
+      </div>
+    </div>
+
   <footer class="site-footer">
     <nav class="footer-links">
       <a href="/contact.html" class="footer-link">צרו איתי קשר</a>
     </nav>
   </footer>
 
+  <script src="announce.js"></script>
   <script src="auth.js"></script>
   <script src="push.js"></script>
   <script src="perks.js"></script>
