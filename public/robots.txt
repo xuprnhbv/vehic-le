@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /history.html
+Disallow: /api/
+
+Sitemap: https://vehic-le.fly.dev/sitemap.xml
