@@ -42,9 +42,10 @@
 
     <div class="tabs" id="periodTabs">
       <button class="tab active" data-period="today">היום</button>
-      <button class="tab" data-period="7days">7 ימים</button>
       <button class="tab" data-period="30days">30 ימים</button>
-      <button class="tab" data-period="all">כל הזמנים</button>
+      <button class="tab" data-period="alltime">כל הזמנים</button>
+      <button class="tab" data-period="overall">ניקוד כולל</button>
+      <button class="tab" data-period="streaks">רצפים</button>
     </div>
 
     <div class="featured-roll hidden" id="featuredRoll">
@@ -129,9 +130,14 @@
         `<tr><th>#</th><th>משתמש</th><th>לוחית</th><th>דירוג</th><th>ניקוד</th><th></th></tr>`;
     }
 
-    function renderAggHead() {
+    function renderOverallHead() {
       document.getElementById("boardHead").innerHTML =
-        `<tr><th>#</th><th>משתמש</th><th class="th-total-score">ניקוד כולל</th><th>גלגול מוביל</th><th></th></tr>`;
+        `<tr><th>#</th><th>משתמש</th><th class="th-total-score">ניקוד כולל</th></tr>`;
+    }
+
+    function renderStreakHead() {
+      document.getElementById("boardHead").innerHTML =
+        `<tr><th>#</th><th>משתמש</th><th>רצף</th></tr>`;
     }
 
     async function loadLeaderboard(period) {
@@ -150,9 +156,9 @@
           return;
         }
 
-        const isToday = period === "today";
+        const isRollScope = ["today", "30days", "alltime"].includes(period);
 
-        if (isToday) {
+        if (isRollScope) {
           renderTodayHead();
           const top = leaderboard[0];
           featuredTier.textContent = top.tier;
@@ -169,11 +175,13 @@
             featuredFields.classList.add("hidden");
           }
           featuredRoll.classList.remove("hidden");
+        } else if (period === "streaks") {
+          renderStreakHead();
         } else {
-          renderAggHead();
+          renderOverallHead();
         }
 
-        const tableRows = isToday ? leaderboard.slice(1) : leaderboard;
+        const tableRows = isRollScope ? leaderboard.slice(1) : leaderboard;
 
         if (!tableRows.length) {
           board.classList.add("hidden");
@@ -184,7 +192,7 @@
           const tr = document.createElement("tr");
           tr.className = "roll-row";
 
-          if (isToday) {
+          if (isRollScope) {
             tr.innerHTML = `
               <td>${row.rank}</td>
               <td>${row.username}</td>
@@ -192,29 +200,27 @@
               <td><span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span></td>
               <td class="mono">${row.score}</td>
               <td class="expand-toggle">▾</td>`;
-          } else {
-            const bestScore = row.bestScore ?? row.score;
+          } else if (period === "streaks") {
             tr.innerHTML = `
               <td>${row.rank}</td>
               <td>${row.username}</td>
-              <td class="td-total-score"><span class="total-score-num">${row.score}</span></td>
-              <td class="td-best-roll">
-                <span class="mono best-roll-plate">${row.plate}</span>
-                <span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span>
-                <span class="best-roll-pts">${bestScore}</span>
-              </td>
-              <td class="expand-toggle">▾</td>`;
+              <td><span class="streak-num">${row.streak} 🔥</span></td>`;
+          } else {
+            tr.innerHTML = `
+              <td>${row.rank}</td>
+              <td>${row.username}</td>
+              <td class="td-total-score"><span class="total-score-num">${row.score}</span></td>`;
           }
 
           tbody.appendChild(tr);
 
-          const detailContent = row.payload ? buildBreakdownDl(row.payload) : null;
+          const detailContent = isRollScope && row.payload ? buildBreakdownDl(row.payload) : null;
 
           if (detailContent) {
             const detailTr = document.createElement("tr");
             detailTr.className = "roll-detail hidden";
             const td = document.createElement("td");
-            td.colSpan = isToday ? 6 : 5;
+            td.colSpan = 6;
             td.appendChild(detailContent);
             detailTr.appendChild(td);
             tbody.appendChild(detailTr);

@@ -38,7 +38,7 @@ public/          static client, served as-is
   markdown.js    tiny safe markdown → HTML (bold/italic/{color|…}); shared by popup + admin preview
   auth.js        auth header, modal tabs, verification/OAuth redirect notices
   history.html   logged-in user's saved rolls, newest first
-  leaderboard.html  global top-50 rolls, sorted by score desc
+  leaderboard.html  global leaderboard: today/30d/all-time best rolls, overall score, streaks
 data/app.db      SQLite file, auto-created on first boot (directory + file are gitignored)
 ```
 
@@ -72,9 +72,10 @@ applies the same Israel offset. The bonus comes from [`streakBonus`](server/scor
 (Standard curve: +2/day, capped at day 20, plus milestone jumps at 7/30/100 days).
 
 The bonus is added to the player's **overall score** (`users.total_score`) and to the
-**cumulative leaderboards** (7d/30d/all — which sum scores), but **never** to the per-plate
-score (`rolls.score`) or tier, and **not** to the *today* leaderboard (a pure plate-rarity
-contest). Each roll stores its own `streak` and `streak_bonus` columns so totals stay
+**overall-score leaderboard** (the one scope that sums scores), but **never** to the
+per-plate score (`rolls.score`) or tier, and **not** to the per-roll leaderboards
+(*today* / *30 days* / *all time* are pure plate-rarity contests). Each roll stores its
+own `streak` and `streak_bonus` columns so totals stay
 consistent through `insertRoll`/`deleteRoll`/`deleteTodayRoll`. The client shows an escalating
 streak flourish (`renderStreak`/`streakTier` in [public/reveal.js](public/reveal.js), five
 tiers in [public/styles.css](public/styles.css)); the anonymous `/api/rate` path sends no

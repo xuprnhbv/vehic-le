@@ -57,17 +57,28 @@ router.get("/me/history", requireAuth, (req, res, next) => {
   }
 });
 
-// Global top scores across all users. ?period=today|7days|30days|all (default: today)
+// Global leaderboard. ?period=today|30days|alltime|overall|streaks (default: today).
+// today/30days/alltime are per-roll best-roll contests; overall sums each user's score;
+// streaks ranks users by their current live consecutive-day streak.
 router.get("/leaderboard", (req, res, next) => {
   try {
-    const VALID = new Set(["today", "7days", "30days", "all"]);
+    const VALID = new Set(["today", "30days", "alltime", "overall", "streaks"]);
     const period = VALID.has(req.query.period) ? req.query.period : "today";
+
+    if (period === "streaks") {
+      const rows = db.getStreakLeaderboard(100).map((r, i) => ({
+        rank: i + 1,
+        username: r.username,
+        streak: r.streak,
+      }));
+      return res.json({ leaderboard: rows });
+    }
+
     const rows = db.getLeaderboard(100, period).map((r, i) => ({
       rank: i + 1,
       username: r.username,
       plate: r.plate_display,
       score: r.score,
-      bestScore: r.best_score ?? null,
       tier: r.tier,
       createdAt: r.created_at,
       payload: r.payload_json ? JSON.parse(r.payload_json) : null,
