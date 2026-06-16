@@ -69,51 +69,14 @@
   </main>
 
   <script src="perks.js"></script>
+  <script src="breakdown.js"></script>
   <script>
-    function pulseClassFor(points) {
-      if (points >= 20) return "pulse-high";
-      if (points >= 10) return "pulse-mid";
-      if (points >= 3)  return "pulse-low";
-      return "pulse-min";
-    }
+    const buildBreakdownDl = Breakdown.buildBreakdownDl;
 
-    function buildBreakdownDl(payload) {
-      const dl = document.createElement("dl");
-      dl.className = "roll-breakdown";
-      for (const f of payload.fields) {
-        const dt = document.createElement("dt");
-        dt.textContent = f.label;
-        const dd = document.createElement("dd");
-        const valSpan = document.createElement("span");
-        valSpan.className = "field-value";
-        valSpan.textContent = f.value;
-        dd.appendChild(valSpan);
-        if (f.points) {
-          const pts = document.createElement("span");
-          pts.className = `field-points ${pulseClassFor(f.points)}`;
-          pts.textContent = `+${f.points}`;
-          dd.appendChild(pts);
-        }
-        dl.append(dt, dd);
-      }
-      if (payload.platePerks && payload.platePerks.length > 0) {
-        const dt = document.createElement("dt");
-        dt.textContent = "בונוס לוחית";
-        const dd = document.createElement("dd");
-        const chips = document.createElement("span");
-        chips.className = "field-value perk-chips";
-        payload.platePerks.forEach((p) => {
-          chips.appendChild(Perks.createChip(p.name, p.pts, { pop: true }));
-        });
-        const totalPts = payload.platePerks.reduce((s, p) => s + p.pts, 0);
-        const pts = document.createElement("span");
-        pts.className = "field-points pulse-high";
-        pts.textContent = `+${totalPts}`;
-        dd.append(chips, pts);
-        dl.append(dt, dd);
-      }
-      return dl;
-    }
+    // Username cell linking to the player's public profile. Usernames are validated to
+    // letters/digits/underscore/Hebrew, so no HTML-escaping is needed here.
+    const userCell = (username) =>
+      `<td><a class="username-link" href="/profile.html?user=${encodeURIComponent(username)}">${username}</a></td>`;
 
     const tbody = document.querySelector("#board tbody");
     const emptyMsg = document.getElementById("emptyMsg");
@@ -165,7 +128,8 @@
           featuredTier.className = `tier-pill tier-${top.tier.toLowerCase()}`;
           featuredScore.textContent = top.score;
           featuredPlate.textContent = top.plate;
-          featuredUser.textContent = top.username;
+          featuredUser.innerHTML = `<a class="username-link" href="/profile.html?user=${encodeURIComponent(top.username)}"></a>`;
+          featuredUser.firstChild.textContent = top.username;
           featuredFields.innerHTML = "";
           if (top.payload) {
             const dl = buildBreakdownDl(top.payload);
@@ -195,7 +159,7 @@
           if (isRollScope) {
             tr.innerHTML = `
               <td>${row.rank}</td>
-              <td>${row.username}</td>
+              ${userCell(row.username)}
               <td class="mono">${row.plate}</td>
               <td><span class="tier-pill tier-${row.tier.toLowerCase()}">${row.tier}</span></td>
               <td class="mono">${row.score}</td>
@@ -203,12 +167,12 @@
           } else if (period === "streaks") {
             tr.innerHTML = `
               <td>${row.rank}</td>
-              <td>${row.username}</td>
+              ${userCell(row.username)}
               <td><span class="streak-num">${row.streak} 🔥</span></td>`;
           } else {
             tr.innerHTML = `
               <td>${row.rank}</td>
-              <td>${row.username}</td>
+              ${userCell(row.username)}
               <td class="td-total-score"><span class="total-score-num">${row.score}</span></td>`;
           }
 
@@ -224,7 +188,8 @@
             td.appendChild(detailContent);
             detailTr.appendChild(td);
             tbody.appendChild(detailTr);
-            tr.addEventListener("click", () => {
+            tr.addEventListener("click", (e) => {
+              if (e.target.closest(".username-link")) return; // let the link navigate
               const open = !detailTr.classList.contains("hidden");
               detailTr.classList.toggle("hidden", open);
               tr.querySelector(".expand-toggle").textContent = open ? "▾" : "▴";

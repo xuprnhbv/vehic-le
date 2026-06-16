@@ -89,4 +89,39 @@ router.get("/leaderboard", (req, res, next) => {
   }
 });
 
+// Public profile for a user, keyed by username (profiles are reached by clicking other
+// players' names on the leaderboard, so no auth). Returns the headline stats plus the
+// best-ever and today's rolls (full payloads so the client renders the same breakdown as
+// the leaderboard). bestRoll/todayRoll are null when absent.
+router.get("/profile/:username", (req, res, next) => {
+  try {
+    const user = db.findUserByUsername(req.params.username);
+    if (!user) return res.status(404).json({ error: "user not found" });
+
+    const toRoll = (row) => {
+      if (!row) return null;
+      const payload = JSON.parse(row.payload_json);
+      return {
+        plate: payload.plate.display,
+        score: payload.score,
+        tier: payload.tier,
+        createdAt: row.created_at ?? null,
+        payload,
+      };
+    };
+
+    res.json({
+      username: user.username,
+      memberSince: user.created_at,
+      totalScore: db.getUserTotalScore(user.id),
+      rollCount: db.getUserRollCount(user.id),
+      currentStreak: db.getLiveStreak(user.id),
+      bestRoll: toRoll(db.getUserBestRoll(user.id)),
+      todayRoll: toRoll(db.getTodayRoll(user.id)),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = { router };
