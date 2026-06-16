@@ -1403,6 +1403,14 @@ dd {
   line-height: 1;
 }
 
+.streak-num {
+  font-size: 1.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fb923c;
+  white-space: nowrap;
+}
+
 .td-best-roll {
   display: flex;
   align-items: center;

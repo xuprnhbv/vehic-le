@@ -284,44 +284,90 @@ function getTodayRank(userId) {
   return rank;
 }
 
-// Leaderboard. For 'today': one row per roll, ranked by individual score. For every
-// other scope: one row per user, ranked by their summed score in the window — the
-// plate/tier/payload shown come from that user's single best roll (see below).
+// Leaderboard. The per-roll scopes ('today', '30days', 'alltime') return one row per
+// roll, ranked by individual plate score, differing only in the date window. The
+// 'overall' scope returns one row per user, ranked by their summed score (streak bonuses
+// included, matching users.total_score). Streak rankings live in getStreakLeaderboard.
 function getLeaderboard(limit = 50, period = 'today') {
-  if (period === 'today') {
+  const PER_ROLL = new Set(['today', '30days', 'alltime']);
+  if (PER_ROLL.has(period)) {
     const off = israelOffset();
+    const where = {
+      today:   `WHERE date(r.created_at, '${off}') = date('now', '${off}')`,
+      '30days': `WHERE r.created_at >= datetime('now', '-30 days')`,
+      alltime: '',
+    }[period];
     return db
       .prepare(
         `SELECT u.username, r.plate_display, r.score, r.tier, r.created_at, r.payload_json
          FROM rolls r JOIN users u ON u.id = r.user_id
-         WHERE date(r.created_at, '${off}') = date('now', '${off}')
+         ${where}
          ORDER BY r.score DESC, r.created_at ASC LIMIT ?`
       )
       .all(limit);
   }
 
-  const where = {
-    '7days':  `WHERE r.created_at >= datetime('now', '-7 days')`,
-    '30days': `WHERE r.created_at >= datetime('now', '-30 days')`,
-    all:      '',
-  }[period] ?? '';
-
-  // SQLite quirk: with exactly one MAX() in the query, the bare columns
-  // (plate_display/tier/payload_json/created_at) come from the MAX row — i.e. each
-  // user's best roll. `score` is the user's total across the window, streak bonuses
-  // included (matches users.total_score). best_score stays the rarest single plate.
+  // 'overall': cumulative per-user total. No best-roll columns — the client shows only
+  // the username and total score for this scope.
   return db
     .prepare(
-      `SELECT u.username,
-              SUM(r.score) + SUM(r.streak_bonus) AS score,
-              MAX(r.score) AS best_score,
-              r.plate_display, r.tier, r.payload_json, r.created_at
+      `SELECT u.username, SUM(r.score) + SUM(r.streak_bonus) AS score
        FROM rolls r JOIN users u ON u.id = r.user_id
-       ${where}
        GROUP BY u.id
        ORDER BY score DESC, u.username ASC LIMIT ?`
     )
     .all(limit);
+}
+
+// Streak leaderboard: rank users by their *current live* consecutive-day streak. A streak
+// is only alive if the user rolled today or yesterday (Israel calendar); otherwise it's
+// broken and the user is excluded. Unlike getCurrentStreak (which assumes a roll is being
+// made right now and never returns 0), this reflects each user's real standing.
+function getStreakLeaderboard(limit = 50) {
+  const off = israelOffset();
+  const rows = db
+    .prepare(
+      `SELECT u.id, u.username, date(r.created_at, '${off}') AS d
+       FROM rolls r JOIN users u ON u.id = r.user_id
+       GROUP BY u.id, d`
+    )
+    .all();
+
+  // Group distinct Israel-date strings per user.
+  const byUser = new Map();
+  for (const { id, username, d } of rows) {
+    let entry = byUser.get(id);
+    if (!entry) {
+      entry = { username, dates: new Set() };
+      byUser.set(id, entry);
+    }
+    entry.dates.add(d);
+  }
+
+  const today = israelToday();
+  const yest = new Date(today + "T00:00:00Z");
+  yest.setUTCDate(yest.getUTCDate() - 1);
+  const yesterday = yest.toISOString().slice(0, 10);
+
+  const result = [];
+  for (const { username, dates } of byUser.values()) {
+    // Walk back from the most recent of {today, yesterday} the user actually has.
+    let start;
+    if (dates.has(today)) start = today;
+    else if (dates.has(yesterday)) start = yesterday;
+    else continue; // streak broken
+
+    let streak = 0;
+    const cur = new Date(start + "T00:00:00Z");
+    while (dates.has(cur.toISOString().slice(0, 10))) {
+      streak++;
+      cur.setUTCDate(cur.getUTCDate() - 1);
+    }
+    result.push({ username, streak });
+  }
+
+  result.sort((a, b) => b.streak - a.streak || a.username.localeCompare(b.username));
+  return result.slice(0, limit);
 }
 
 // ── Push subscriptions (daily roll reminders) ─────────────────────────────────
@@ -570,6 +616,7 @@ module.exports = {
   getUserHistory,
   getUserTotalScore,
   getLeaderboard,
+  getStreakLeaderboard,
   saveSubscription,
   deleteSubscription,
   deleteSubscriptionById,
