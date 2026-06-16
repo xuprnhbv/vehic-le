@@ -272,6 +272,49 @@ function getUserTotalScore(userId) {
   return db.prepare(`SELECT total_score FROM users WHERE id = ?`).get(userId)?.total_score ?? 0;
 }
 
+// Highest-scoring roll a user has ever made (ties broken by the earliest one).
+function getUserBestRoll(userId) {
+  return db
+    .prepare(
+      `SELECT plate_display, score, tier, payload_json, created_at
+       FROM rolls WHERE user_id = ? ORDER BY score DESC, created_at ASC LIMIT 1`
+    )
+    .get(userId);
+}
+
+function getUserRollCount(userId) {
+  return db.prepare(`SELECT COUNT(*) AS cnt FROM rolls WHERE user_id = ?`).get(userId)?.cnt ?? 0;
+}
+
+// The user's current streak *as of now* — returns 0 when broken (no roll today or
+// yesterday). Unlike getCurrentStreak, this does NOT assume a roll is being made right now,
+// so it's the honest value for a passive profile view. Mirrors getStreakLeaderboard's
+// per-user walk.
+function getLiveStreak(userId) {
+  const off = israelOffset();
+  const rows = db
+    .prepare(`SELECT DISTINCT date(created_at, '${off}') AS d FROM rolls WHERE user_id = ?`)
+    .all(userId);
+  const have = new Set(rows.map((r) => r.d));
+  const today = israelToday();
+  const yest = new Date(today + "T00:00:00Z");
+  yest.setUTCDate(yest.getUTCDate() - 1);
+  const yesterday = yest.toISOString().slice(0, 10);
+
+  let start;
+  if (have.has(today)) start = today;
+  else if (have.has(yesterday)) start = yesterday;
+  else return 0; // streak broken
+
+  let streak = 0;
+  const cur = new Date(start + "T00:00:00Z");
+  while (have.has(cur.toISOString().slice(0, 10))) {
+    streak++;
+    cur.setUTCDate(cur.getUTCDate() - 1);
+  }
+  return streak;
+}
+
 function getTodayRank(userId) {
   const off = israelOffset();
   const myRow = db
@@ -615,6 +658,9 @@ module.exports = {
   insertRoll,
   getUserHistory,
   getUserTotalScore,
+  getUserBestRoll,
+  getUserRollCount,
+  getLiveStreak,
   getLeaderboard,
   getStreakLeaderboard,
   saveSubscription,

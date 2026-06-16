@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vehic-le · פרופיל</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+  <main class="app">
+    <nav class="topbar">
+      <div class="topbar-start">
+        <a class="topbar-brand" href="/">Vehic-le</a>
+        <div class="nav-links">
+          <a href="/" class="nav-btn">גלגול</a>
+          <a href="/rate.html" class="nav-btn">דרג את הרכב שלי</a>
+          <a href="/leaderboard.html" class="nav-btn">טבלת מובילים</a>
+          <a id="historyLink" href="/history.html" class="nav-btn hidden">היסטוריה</a>
+          <a id="adminLink" href="/admin.html" class="nav-btn hidden">ניהול</a>
+        </div>
+      </div>
+      <div id="authArea" class="auth-area"></div>
+    </nav>
+
+    <header>
+      <h1 id="profileName">פרופיל</h1>
+      <p class="tagline" id="profileTagline"></p>
+    </header>
+
+    <p class="empty-msg hidden" id="emptyMsg"></p>
+
+    <div id="profileBody" class="hidden">
+      <section class="profile-stats">
+        <div class="profile-stat">
+          <p class="profile-stat-label">ניקוד כולל</p>
+          <p class="profile-stat-value accent" id="statScore">0</p>
+        </div>
+        <div class="profile-stat">
+          <p class="profile-stat-label">רצף נוכחי</p>
+          <p class="profile-stat-value" id="statStreak">—</p>
+        </div>
+        <div class="profile-stat">
+          <p class="profile-stat-label">סך גלגולים</p>
+          <p class="profile-stat-value" id="statRolls">0</p>
+        </div>
+        <div class="profile-stat">
+          <p class="profile-stat-label">חבר/ה מאז</p>
+          <p class="profile-stat-value" id="statSince">—</p>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="profile-section-title">השיא של כל הזמנים</h2>
+        <div id="bestRollSlot"></div>
+      </section>
+
+      <section>
+        <h2 class="profile-section-title">הגלגול של היום</h2>
+        <div id="todayRollSlot"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="perks.js"></script>
+  <script src="breakdown.js"></script>
+  <script>
+    (async function () {
+      const emptyMsg = document.getElementById("emptyMsg");
+      const body = document.getElementById("profileBody");
+      function showEmpty(text) {
+        emptyMsg.textContent = text;
+        emptyMsg.classList.remove("hidden");
+        body.classList.add("hidden");
+      }
+
+      // Renders a roll card (plate + tier + score header, then the shared breakdown).
+      function rollCard(roll) {
+        const card = document.createElement("div");
+        card.className = "profile-roll list-panel";
+        const head = document.createElement("div");
+        head.className = "profile-roll-head";
+        head.innerHTML = `
+          <span class="tier-pill tier-${roll.tier.toLowerCase()}">${roll.tier}</span>
+          <span class="profile-roll-plate mono">${roll.plate}</span>
+          <span class="profile-roll-score mono">${roll.score}</span>`;
+        card.appendChild(head);
+        card.appendChild(Breakdown.buildBreakdownDl(roll.payload));
+        return card;
+      }
+      function emptyNote(text) {
+        const p = document.createElement("p");
+        p.className = "empty-msg";
+        p.textContent = text;
+        return p;
+      }
+
+      const username = new URLSearchParams(location.search).get("user");
+      if (!username) {
+        showEmpty("לא צוין משתמש.");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/profile/" + encodeURIComponent(username));
+        if (res.status === 404) {
+          showEmpty("המשתמש לא נמצא.");
+          return;
+        }
+        if (!res.ok) {
+          showEmpty("תקלה בטעינת הפרופיל.");
+          return;
+        }
+        const p = await res.json();
+
+        document.getElementById("profileName").textContent = p.username;
+        document.getElementById("profileTagline").textContent = "פרופיל שחקן";
+        document.getElementById("statScore").textContent = p.totalScore.toLocaleString("he-IL");
+        document.getElementById("statStreak").textContent =
+          p.currentStreak > 0 ? `${p.currentStreak} 🔥` : "אין רצף פעיל";
+        document.getElementById("statRolls").textContent = p.rollCount.toLocaleString("he-IL");
+        document.getElementById("statSince").textContent = p.memberSince
+          ? new Date(p.memberSince.replace(" ", "T") + "Z").toLocaleDateString("he-IL")
+          : "—";
+
+        const bestSlot = document.getElementById("bestRollSlot");
+        bestSlot.appendChild(p.bestRoll ? rollCard(p.bestRoll) : emptyNote("עדיין אין גלגולים."));
+
+        const todaySlot = document.getElementById("todayRollSlot");
+        todaySlot.appendChild(p.todayRoll ? rollCard(p.todayRoll) : emptyNote("עדיין לא גלגל/ה היום."));
+
+        body.classList.remove("hidden");
+      } catch {
+        showEmpty("תקלה בטעינת הפרופיל.");
+      }
+    })();
+  </script>
+  <footer class="site-footer">
+    <nav class="footer-links">
+      <a href="/contact.html" class="footer-link">צרו איתי קשר</a>
+    </nav>
+  </footer>
+  <script src="nav.js"></script>
+  <script src="push.js"></script>
+</body>
+</html>
