@@ -24,11 +24,12 @@ shareBtn.addEventListener("click", async () => {
   if (!currentRoll) return;
   const { tier, score, plate } = currentRoll;
   const details = Reveal.shareDetailLines(currentRoll);
+  const shareUrl = `${RATE_URL}?plate=${plate.digits}`;
   const text =
     `הרכב שלי 🚗 ${plate.display}\n\n` +
     `${TIER_EMOJI[tier] ?? "⭐"} Tier ${tier} - ${score} נקודות\n\n` +
     `${details}\n\n` +
-    `דרגו את הרכב שלכם:\n${RATE_URL}`;
+    `דרגו את הרכב שלכם:\n${shareUrl}`;
   if (navigator.share) {
     try { await navigator.share({ text }); } catch { /* user dismissed */ }
   } else {
@@ -86,3 +87,14 @@ form.addEventListener("submit", async (e) => {
     rateBtn.disabled = false;
   }
 });
+
+// Deep link: /rate.html?plate=12345678 prefills the plate and rates it instantly,
+// so a shared link drops straight into the scoring animation. Mirrors auth.js's
+// query-param pattern (read params, then tidy the URL with replaceState).
+(function autoRateFromUrl() {
+  const digits = (new URLSearchParams(location.search).get("plate") || "").replace(/\D/g, "");
+  if (digits.length < 5 || digits.length > 8) return;
+  history.replaceState({}, "", location.pathname);
+  plateInput.value = digits;
+  form.requestSubmit();
+})();
