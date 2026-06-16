@@ -869,14 +869,14 @@ function scorePlate(digits) {
 // ── Daily streak bonus ──────────────────────────────────────────────────────
 // Extra points for rolling on consecutive days. Added to the player's *overall*
 // score (and the cumulative leaderboards) — never to the plate score or tier.
-// "Standard" curve: linear +2/day (caps at day 20) with milestone jumps.
-// day1=+1, day2=+3, day7=+18, day30=+69, day100=+144.
+// Capped at 24 — the top of D tier, roughly the score of an average car.
+// day1=1 … day10=14 (flat) … day30=19 (flat) … day100=24 (hard cap).
 function streakBonus(streak) {
   if (streak <= 0) return 0;
-  let bonus = 1 + (Math.min(streak, 20) - 1) * 2;
-  if (streak >= 7) bonus += 5;
-  if (streak >= 30) bonus += 25;
-  if (streak >= 100) bonus += 75;
+  let bonus = Math.min(streak, 10);
+  if (streak >= 7)   bonus += 4;
+  if (streak >= 30)  bonus += 5;
+  if (streak >= 100) bonus += 5;
   return bonus;
 }
 
