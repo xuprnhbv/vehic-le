@@ -7,7 +7,7 @@ const session = require("express-session");
 const SqliteStore = require("./session-store")(session);
 const passport = require("passport");
 
-const { startRefreshTimer, rollRecord, fetchRecordByPlate } = require("./dataset");
+const { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate } = require("./dataset");
 const { buildRollPayload, streakBonus } = require("./scoring");
 const { insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage } = require("./db");
 const auth = require("./auth");
@@ -107,7 +107,9 @@ app.get("/api/roll", async (req, res) => {
     return res.status(429).json({ error: "daily_limit" });
   }
   try {
-    const record = await rollRecord();
+    // Logged-in rolls are served instantly from the pre-fetched pool (refilled
+    // in the background); anonymous rolls stay fully on-demand.
+    const record = req.user ? await takeCachedRecord() : await rollRecord();
     const payload = buildRollPayload(record);
     let rank = null;
     if (req.user) {
