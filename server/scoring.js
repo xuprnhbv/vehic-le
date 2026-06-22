@@ -380,6 +380,23 @@ const PLATE_PERKS = [
     check: (d) => d === d.split("").reverse().join("") && new Set(d).size > 1,
   },
   {
+    id: "strobogrammatic",
+    name: "הפוך על הפוך",
+    desc: "הלוחית נקראת אותו דבר כשמסובבים אותה ב-180° (ספרות 0,1,8,6,9 בלבד; 6↔9)",
+    pts: 32,
+    check: (d) => {
+      if (new Set(d).size === 1) return false;
+      const rot = { "0": "0", "1": "1", "8": "8", "6": "9", "9": "6" };
+      let r = "";
+      for (let i = d.length - 1; i >= 0; i--) {
+        const m = rot[d[i]];
+        if (m === undefined) return false;
+        r += m;
+      }
+      return r === d;
+    },
+  },
+  {
     id: "sequence",
     name: "סדרה מושלמת",
     desc: "כל הספרות ברצף עולה או יורד של 1",
@@ -502,6 +519,17 @@ const PLATE_PERKS = [
       return Object.values(c).every((n) => n % 2 === 0);
     },
   },
+  {
+    id: "pandigital",
+    name: "פנדיגיטלי",
+    desc: "שמונה ספרות שונות ורצופות (כמו 0–7, 1–8 או 2–9)",
+    pts: 18,
+    check: (d) => {
+      if (d.length !== 8 || new Set(d).size !== 8) return false;
+      const nums = d.split("").map(Number);
+      return Math.max(...nums) - Math.min(...nums) === 7;
+    },
+  },
 
   // ── Runs & Patterns ────────────────────────────────────────────────────────
   {
@@ -584,6 +612,43 @@ const PLATE_PERKS = [
       for (let i = 0; i < d.length; i += 2) if (d[i] !== d[i + 1]) return false;
       return true;
     },
+  },
+  // Block patterns: a contiguous run somewhere in the plate matching the shape,
+  // with X≠Y enforced by the (?!\1) lookahead so they don't collapse into a run.
+  {
+    id: "blockxxyy",
+    name: "זוג-זוג",
+    desc: "שני זוגות צמודים של ספרות זהות שונות (א-א-ב-ב)",
+    pts: 6,
+    check: (d) => /(\d)\1(?!\1)(\d)\2/.test(d),
+  },
+  {
+    id: "blockxyyx",
+    name: "א-ב-ב-א",
+    desc: "ארבע ספרות בתבנית מראה (א-ב-ב-א)",
+    pts: 7,
+    check: (d) => /(\d)(?!\1)(\d)\2\1/.test(d),
+  },
+  {
+    id: "blockxyxy",
+    name: "א-ב-א-ב",
+    desc: "תבנית מתחלפת באורך ארבע (א-ב-א-ב)",
+    pts: 7,
+    check: (d) => /(\d)(?!\1)(\d)\1\2/.test(d),
+  },
+  {
+    id: "blockxyxyx",
+    name: "א-ב-א-ב-א",
+    desc: "תבנית מתחלפת באורך חמש (א-ב-א-ב-א)",
+    pts: 16,
+    check: (d) => /(\d)(?!\1)(\d)\1\2\1/.test(d),
+  },
+  {
+    id: "blockxxxyyy",
+    name: "שלשה-שלשה",
+    desc: "שתי שלשות צמודות של ספרות זהות שונות (א-א-א-ב-ב-ב)",
+    pts: 22,
+    check: (d) => /(\d)\1\1(?!\1)(\d)\2\2/.test(d),
   },
 
   // ── Math ────────────────────────────────────────────────────────────────────
@@ -681,6 +746,54 @@ const PLATE_PERKS = [
     pts: 5,
     check: (d) => digitSum(d) <= 7,
   },
+  {
+    id: "balanced",
+    name: "מאוזן",
+    desc: "סכום ספרות המחצית הראשונה שווה לסכום ספרות המחצית השנייה (לוחית בת 8 ספרות)",
+    pts: 7,
+    check: (d) => d.length === 8 && digitSum(d.slice(0, 4)) === digitSum(d.slice(4)),
+  },
+  {
+    id: "divbyalldigits",
+    name: "מתחלק בכל ספרותיו",
+    desc: "מספר הלוחית מתחלק בכל אחת מספרותיו (מלבד אפסים)",
+    pts: 9,
+    check: (d) => {
+      const n = Number(d);
+      if (n === 0) return false;
+      for (const c of d) {
+        const k = Number(c);
+        if (k !== 0 && n % k !== 0) return false;
+      }
+      return true;
+    },
+  },
+  {
+    id: "automorphic",
+    name: "אוטומורפי",
+    desc: "ריבוע מספר הלוחית מסתיים באותו מספר",
+    pts: 30,
+    check: (d) => {
+      const n = BigInt(d);
+      if (n === 0n) return false;
+      return (n * n).toString().endsWith(n.toString());
+    },
+  },
+  {
+    id: "primedigitsum",
+    name: "סכום ראשוני",
+    desc: "סכום ספרות הלוחית הוא מספר ראשוני",
+    pts: 2,
+    check: (d) => isPrime(digitSum(d)),
+  },
+  {
+    id: "palindromeprime",
+    name: "ראשוני פלינדרומי",
+    desc: "מספר הלוחית ראשוני וגם פלינדרום",
+    pts: 32,
+    check: (d) =>
+      new Set(d).size > 1 && d === d.split("").reverse().join("") && isPrime(Number(d)),
+  },
 
   // ── Contains ───────────────────────────────────────────────────────────────
   {
@@ -724,6 +837,27 @@ const PLATE_PERKS = [
     desc: "הרצף 1948 מופיע בלוחית — שנת הקמת המדינה",
     pts: 12,
     check: (d) => d.includes("1948"),
+  },
+  {
+    id: "sixday",
+    name: "מלחמת ששת הימים",
+    desc: "הרצף 1967 מופיע בלוחית — שנת מלחמת ששת הימים",
+    pts: 10,
+    check: (d) => d.includes("1967"),
+  },
+  {
+    id: "yomkippur",
+    name: "יום כיפור",
+    desc: "הרצף 1973 מופיע בלוחית — שנת מלחמת יום הכיפורים",
+    pts: 10,
+    check: (d) => d.includes("1973"),
+  },
+  {
+    id: "taryag",
+    name: 'תרי"ג מצוות',
+    desc: "הרצף 613 מופיע בלוחית — מספר המצוות",
+    pts: 5,
+    check: (d) => d.includes("613"),
   },
   {
     id: "israelcode",
@@ -781,6 +915,18 @@ const PLATE_PERKS = [
     desc: "הספרה הראשונה והאחרונה זהות",
     pts: 5,
     check: (d) => d[0] === d[d.length - 1],
+  },
+  {
+    id: "ninecomplement",
+    name: "משלימים לתשע",
+    desc: "כל ספרה והספרה הסימטרית לה מהצד השני מסתכמות ב-9",
+    pts: 26,
+    check: (d) => {
+      for (let i = 0, j = d.length - 1; i <= j; i++, j--) {
+        if (Number(d[i]) + Number(d[j]) !== 9) return false;
+      }
+      return true;
+    },
   },
   {
     id: "nondecreasing",
