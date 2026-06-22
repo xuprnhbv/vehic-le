@@ -833,6 +833,20 @@ const PLATE_PERKS = [
 
   // ── Special / themed ─────────────────────────────────────────────────────────
   {
+    // Israeli taxi registration numbers always end in 25 or 26 (true for both the
+    // 7- and 8-digit formats — taxis still use the legacy 25/26 series). So a plate
+    // ending in either suffix is, by the numbering scheme, a taxi. The Monte-Carlo
+    // estimator reports ~2% (random digits land on 25/26 that often), but in the real
+    // fleet 25/26 is RESERVED for taxis, so the true hit-rate is the taxi share of the
+    // fleet: ~25,050 taxis / ~4.2M vehicles ≈ 0.6% (≈ the 5-pt themed-substring perks
+    // like 911/מד"א), nudged up for being a signature find.
+    id: "taxi",
+    name: "מונית",
+    desc: "מספר הלוחית מסתיים ב-25 או ב-26 — סימן ההיכר של מוניות בישראל",
+    pts: 8,
+    check: (d) => d.endsWith("25") || d.endsWith("26"),
+  },
+  {
     // Contains an Israeli intelligence/cyber unit code (7149 or 8200). Two specific
     // 4-digit substrings ≈ twice as likely as a single one (cf. contains1337).
     id: "cyber",
