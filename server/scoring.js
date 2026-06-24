@@ -318,6 +318,35 @@ function maxDigitCount(d) {
   return Math.max(...Object.values(counts));
 }
 
+// [start,end] ranges of maximal runs of equal digits whose length is >= minLen.
+// Used as perk `spans` so a longer run can suppress a shorter-run perk only where it
+// actually sits (e.g. 1111222 keeps both quadrun for 1111 and triplerun for 222).
+function runSpans(d, minLen) {
+  const spans = [];
+  let i = 0;
+  while (i < d.length) {
+    let j = i;
+    while (j + 1 < d.length && d[j + 1] === d[i]) j++;
+    if (j - i + 1 >= minLen) spans.push([i, j]);
+    i = j + 1;
+  }
+  return spans;
+}
+
+// Single-index [i,i] spans for every position of any digit appearing >= minCount times.
+// Used as count-perk `spans` so a run perk suppresses the same-digit count perk only when
+// the run covers all of that digit's positions (1111234 → run accounts for the 4; 1112341 →
+// the stray 1 is outside the run, so the count perk survives).
+function digitPositions(d, minCount) {
+  const pos = {};
+  for (let i = 0; i < d.length; i++) (pos[d[i]] ??= []).push(i);
+  const spans = [];
+  for (const k of Object.keys(pos)) {
+    if (pos[k].length >= minCount) for (const i of pos[k]) spans.push([i, i]);
+  }
+  return spans;
+}
+
 function digitSum(d) {
   return d.split("").reduce((s, c) => s + Number(c), 0);
 }
@@ -371,6 +400,9 @@ const PLATE_PERKS = [
     desc: "כל ספרות הלוחית זהות",
     pts: 40,
     check: (d) => new Set(d).size === 1,
+    // All identical: the ceiling of both the run and the count ladders. No spans → covers
+    // the whole plate, so every repetition perk below is unconditionally redundant.
+    subsumes: ["quintrun", "quadrun", "triplerun", "quintdigit", "quaddigit"],
   },
   {
     id: "palindrome",
@@ -407,6 +439,9 @@ const PLATE_PERKS = [
       for (let i = 1; i < d.length; i++) if (Number(d[i]) - Number(d[i - 1]) !== step) return false;
       return true;
     },
+    // Whole-plate ±1 run: every local three-in-arithmetic is part of it. No spans → covers
+    // the whole plate, so the local run perks below are redundant.
+    subsumes: ["threeup", "threedown"],
   },
   {
     id: "triplerun",
@@ -414,6 +449,7 @@ const PLATE_PERKS = [
     desc: "שלוש ספרות זהות ברצף",
     pts: 8,
     check: (d) => /(.)\1\1/.test(d),
+    spans: (d) => runSpans(d, 3),
   },
   {
     id: "sixtyseven",
@@ -538,6 +574,8 @@ const PLATE_PERKS = [
     desc: "ארבע ספרות זהות ברצף",
     pts: 18,
     check: (d) => /(.)\1\1\1/.test(d),
+    spans: (d) => runSpans(d, 4),
+    subsumes: ["triplerun", "quaddigit"],
   },
   {
     id: "quintrun",
@@ -545,6 +583,8 @@ const PLATE_PERKS = [
     desc: "חמש ספרות זהות ברצף",
     pts: 32,
     check: (d) => /(.)\1\1\1\1/.test(d),
+    spans: (d) => runSpans(d, 5),
+    subsumes: ["quadrun", "triplerun", "quintdigit", "quaddigit"],
   },
   {
     id: "twotriplerun",
@@ -587,6 +627,7 @@ const PLATE_PERKS = [
     desc: "אותה ספרה מופיעה לפחות ארבע פעמים",
     pts: 10,
     check: (d) => maxDigitCount(d) >= 4,
+    spans: (d) => digitPositions(d, 4),
   },
   {
     id: "quintdigit",
@@ -594,6 +635,8 @@ const PLATE_PERKS = [
     desc: "אותה ספרה מופיעה לפחות חמש פעמים",
     pts: 18,
     check: (d) => maxDigitCount(d) >= 5,
+    spans: (d) => digitPositions(d, 5),
+    subsumes: ["quaddigit"],
   },
   {
     id: "twins",
@@ -793,6 +836,7 @@ const PLATE_PERKS = [
     pts: 32,
     check: (d) =>
       new Set(d).size > 1 && d === d.split("").reverse().join("") && isPrime(Number(d)),
+    subsumes: ["palindrome"],
   },
 
   // ── Contains ───────────────────────────────────────────────────────────────
@@ -968,6 +1012,7 @@ const PLATE_PERKS = [
     desc: "גבעה שבה הספרה הראשונה והאחרונה זהות",
     pts: 22,
     check: (d) => isHill(d) && d[0] === d[d.length - 1],
+    subsumes: ["hill"],
   },
   {
     id: "perfectvalley",
@@ -975,6 +1020,7 @@ const PLATE_PERKS = [
     desc: "גיא שבו הספרה הראשונה והאחרונה זהות",
     pts: 22,
     check: (d) => isValley(d) && d[0] === d[d.length - 1],
+    subsumes: ["valley"],
   },
 
   // ── Special / themed ─────────────────────────────────────────────────────────
@@ -1020,10 +1066,29 @@ const PLATE_PERKS = [
   },
 ];
 
+// Keep only the rarest perk within each overlapping feature ladder. A matched perk B may
+// `subsumes` lower-rung perks; a subsumed perk A is dropped only when every position it
+// claims (its `spans`, or the whole plate if it has none) is already covered by the union of
+// its matched subsumers' spans. Subsumers without `spans` cover the whole plate, so they drop
+// A unconditionally. This makes independent occurrences survive: 1111222 keeps both quadrun
+// (1111) and triplerun (222); 1112341 keeps quaddigit because the 4th "1" is outside the run.
 function scorePlate(digits) {
   const matched = PLATE_PERKS.filter((p) => p.check(digits));
-  const pts = matched.reduce((s, p) => s + p.pts, 0);
-  return { pts, perks: matched };
+  const len = digits.length;
+  const survivors = matched.filter((perk) => {
+    const subsumers = matched.filter((b) => b.subsumes?.includes(perk.id));
+    if (subsumers.length === 0) return true;
+    const covered = new Array(len).fill(false);
+    for (const b of subsumers) {
+      if (!b.spans) return false; // whole-plate subsumer → always drops
+      for (const [s, e] of b.spans(digits)) for (let i = s; i <= e; i++) covered[i] = true;
+    }
+    const want = perk.spans ? perk.spans(digits) : [[0, len - 1]];
+    for (const [s, e] of want) for (let i = s; i <= e; i++) if (!covered[i]) return true;
+    return false; // every claimed position already covered by a rarer perk
+  });
+  const pts = survivors.reduce((s, p) => s + p.pts, 0);
+  return { pts, perks: survivors };
 }
 
 // ── Daily streak bonus ──────────────────────────────────────────────────────
