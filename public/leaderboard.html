@@ -48,6 +48,11 @@
       <button class="tab" data-period="streaks">רצפים</button>
     </div>
 
+    <div class="perk-toggle" id="perkToggle">
+      <button class="perk-btn active" data-mode="with">כולל בונוסי לוחית</button>
+      <button class="perk-btn" data-mode="without">רכב בלבד</button>
+    </div>
+
     <div class="featured-roll hidden" id="featuredRoll">
       <div class="featured-rank" id="featuredRank">🏆 #1</div>
       <span class="tier-pill" id="featuredTier"></span>
@@ -87,6 +92,9 @@
     const featuredPlate = document.getElementById("featuredPlate");
     const featuredUser = document.getElementById("featuredUser");
     const featuredFields = document.getElementById("featuredFields");
+    const perkToggle = document.getElementById("perkToggle");
+
+    let excludePerks = false;
 
     function renderTodayHead() {
       document.getElementById("boardHead").innerHTML =
@@ -110,7 +118,7 @@
       featuredRoll.classList.add("hidden");
 
       try {
-        const res = await fetch(`/api/leaderboard?period=${period}`);
+        const res = await fetch(`/api/leaderboard?period=${period}${excludePerks ? "&excludePerks=1" : ""}`);
         const { leaderboard } = await res.json();
 
         if (!leaderboard.length) {
@@ -202,12 +210,26 @@
       }
     }
 
+    const ROLL_SCOPES = new Set(["today", "30days", "alltime"]);
+
     document.getElementById("periodTabs").addEventListener("click", (e) => {
       const btn = e.target.closest(".tab");
       if (!btn) return;
       document.querySelectorAll("#periodTabs .tab").forEach((t) => t.classList.remove("active"));
       btn.classList.add("active");
-      loadLeaderboard(btn.dataset.period);
+      const period = btn.dataset.period;
+      perkToggle.classList.toggle("hidden", !ROLL_SCOPES.has(period));
+      loadLeaderboard(period);
+    });
+
+    perkToggle.addEventListener("click", (e) => {
+      const btn = e.target.closest(".perk-btn");
+      if (!btn) return;
+      document.querySelectorAll(".perk-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      excludePerks = btn.dataset.mode === "without";
+      const activePeriod = document.querySelector("#periodTabs .tab.active").dataset.period;
+      loadLeaderboard(activePeriod);
     });
 
     loadLeaderboard("today");
