@@ -5,7 +5,7 @@
 const express = require("express");
 const db = require("./db");
 const { requireAuth } = require("./auth");
-const { getPerkDescriptions } = require("./scoring");
+const { getPerkDescriptions, tierFor } = require("./scoring");
 
 const router = express.Router();
 
@@ -72,6 +72,30 @@ router.get("/leaderboard", (req, res, next) => {
         streak: r.streak,
       }));
       return res.json({ leaderboard: rows });
+    }
+
+    const PER_ROLL = new Set(["today", "30days", "alltime"]);
+    if (PER_ROLL.has(period) && req.query.excludePerks === "1") {
+      const pool = db.getLeaderboard(500, period);
+      const reranked = pool
+        .map((r) => {
+          const payload = r.payload_json ? JSON.parse(r.payload_json) : null;
+          const perkPts = payload?.platePerks?.reduce((s, p) => s + p.pts, 0) ?? 0;
+          const vehicleScore = r.score - perkPts;
+          return { ...r, score: vehicleScore, tier: tierFor(vehicleScore), payload };
+        })
+        .sort((a, b) => b.score - a.score || a.created_at.localeCompare(b.created_at))
+        .slice(0, 100)
+        .map((r, i) => ({
+          rank: i + 1,
+          username: r.username,
+          plate: r.plate_display,
+          score: r.score,
+          tier: r.tier,
+          createdAt: r.created_at,
+          payload: r.payload,
+        }));
+      return res.json({ leaderboard: reranked });
     }
 
     const rows = db.getLeaderboard(100, period).map((r, i) => ({

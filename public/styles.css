@@ -1122,6 +1122,31 @@ dd {
   border-bottom-color: var(--accent);
 }
 
+.perk-toggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+  justify-content: center;
+}
+
+.perk-toggle.hidden { display: none; }
+
+.perk-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 0.25rem 0.85rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.perk-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
