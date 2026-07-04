@@ -776,13 +776,6 @@ const PLATE_PERKS = [
     check: (d) => digitSum(d) === 18,
   },
   {
-    id: "gematria36",
-    name: "גימטרייה ל\"ו",
-    desc: "סכום הספרות הוא 36 (ל״ו)",
-    pts: 7,
-    check: (d) => digitSum(d) === 36,
-  },
-  {
     id: "smallsum",
     name: "סכום קטן מ7",
     desc: "סכום כל הספרות הוא 7 או פחות",
