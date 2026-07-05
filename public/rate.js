@@ -24,11 +24,14 @@ shareBtn.addEventListener("click", async () => {
   if (!currentRoll) return;
   const { tier, score, plate } = currentRoll;
   const details = Reveal.shareDetailLines(currentRoll);
+  const perks = Reveal.sharePerkLines(currentRoll);
+  const perksBlock = perks ? `${perks}\n\n` : "";
   const shareUrl = `${RATE_URL}?plate=${plate.digits}`;
   const text =
     `הרכב שלי 🚗 ${plate.display}\n\n` +
     `${TIER_EMOJI[tier] ?? "⭐"} Tier ${tier} - ${score} נקודות\n\n` +
     `${details}\n\n` +
+    `${perksBlock}` +
     `דרגו את הרכב שלכם:\n${shareUrl}`;
   if (navigator.share) {
     try { await navigator.share({ text }); } catch { /* user dismissed */ }
