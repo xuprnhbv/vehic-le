@@ -401,8 +401,10 @@ const PLATE_PERKS = [
     pts: 40,
     check: (d) => new Set(d).size === 1,
     // All identical: the ceiling of both the run and the count ladders. No spans → covers
-    // the whole plate, so every repetition perk below is unconditionally redundant.
-    subsumes: ["quintrun", "quadrun", "triplerun", "quintdigit", "quaddigit"],
+    // the whole plate, so every repetition perk below is unconditionally redundant. Also
+    // trivially satisfies same-edges and both sort orders.
+    subsumes: ["quintrun", "quadrun", "triplerun", "quintdigit", "quaddigit",
+      "sameedges", "nondecreasing", "nonincreasing"],
   },
   {
     id: "palindrome",
@@ -410,6 +412,8 @@ const PLATE_PERKS = [
     desc: "הלוחית נקראת אותו דבר משני הכיוונים",
     pts: 22,
     check: (d) => d === d.split("").reverse().join("") && new Set(d).size > 1,
+    // Reversing a palindrome preserves first==last unconditionally.
+    subsumes: ["sameedges"],
   },
   {
     id: "strobogrammatic",
@@ -440,8 +444,10 @@ const PLATE_PERKS = [
       return true;
     },
     // Whole-plate ±1 run: every local three-in-arithmetic is part of it. No spans → covers
-    // the whole plate, so the local run perks below are redundant.
-    subsumes: ["threeup", "threedown"],
+    // the whole plate, so the local run perks below are redundant. A ≤10-length ±1 run also
+    // never repeats a digit — but only one of nondecreasing/nonincreasing holds depending on
+    // direction, never both, so those are NOT included here.
+    subsumes: ["threeup", "threedown", "allunique"],
   },
   {
     id: "triplerun",
@@ -508,6 +514,8 @@ const PLATE_PERKS = [
     desc: "כל הספרות אי-זוגיות (1,3,5,7,9)",
     pts: 10,
     check: (d) => isAllIn(d, "13579"),
+    // 0 is never odd, so this can never contain a zero.
+    subsumes: ["nozero"],
   },
   {
     id: "nozero",
@@ -522,6 +530,8 @@ const PLATE_PERKS = [
     desc: "הלוחית מורכבת משתי ספרות שונות בלבד",
     pts: 14,
     check: (d) => new Set(d).size === 2,
+    // Pigeonhole: 2 values filling 7-8 slots forces some digit's count to at least 4.
+    subsumes: ["quaddigit"],
   },
   {
     id: "threedig",
@@ -536,6 +546,8 @@ const PLATE_PERKS = [
     desc: "כל הספרות ראשוניות (2,3,5,7)",
     pts: 9,
     check: (d) => isAllIn(d, "2357"),
+    // 0 is never prime, so this can never contain a zero.
+    subsumes: ["nozero"],
   },
   {
     id: "binary",
@@ -543,6 +555,11 @@ const PLATE_PERKS = [
     desc: "הלוחית מורכבת מהספרות 0 ו-1 בלבד",
     pts: 25,
     check: (d) => isAllIn(d, "01") && new Set(d).size > 1,
+    // Only 2 possible values (size>1 forces exactly 2 → twodig, hence quaddigit by pigeonhole).
+    // Needs a 0 present (else it'd be all-1s, failing size>1), so digit sum ≤ length-1 ≤ 7
+    // (smallsum), and the only possible nonzero digit is 1, so "divides every nonzero digit"
+    // is trivially true (divbyalldigits).
+    subsumes: ["twodig", "quaddigit", "smallsum", "divbyalldigits"],
   },
   {
     id: "allpairs",
@@ -565,6 +582,8 @@ const PLATE_PERKS = [
       const nums = d.split("").map(Number);
       return Math.max(...nums) - Math.min(...nums) === 7;
     },
+    // Own check already requires exactly 8 distinct digits — identical to allunique at length 8.
+    subsumes: ["allunique"],
   },
 
   // ── Runs & Patterns ────────────────────────────────────────────────────────
@@ -592,6 +611,11 @@ const PLATE_PERKS = [
     desc: "שתי קבוצות נפרדות של שלוש ספרות זהות ברצף",
     pts: 20,
     check: (d) => countRuns(d, 3).length >= 2,
+    // NOT "triplerun": having ≥2 qualifying runs does always imply ≥1 exists, but this has
+    // no `spans` of its own, so declaring it here would unconditionally drop triplerun even
+    // when one of the runs is a quadrun+ that only *partially* covers triplerun's spans —
+    // e.g. "1111222" (quadrun's span is only "1111"; triplerun must survive via "222", per
+    // the documented invariant below). Confirmed as a real regression by direct testing.
   },
   {
     id: "abab",
@@ -599,6 +623,10 @@ const PLATE_PERKS = [
     desc: "שתי ספרות מתחלפות לסירוגין (א-ב-א-ב)",
     pts: 20,
     check: (d) => isABAB(d),
+    // Whole-plate 2-digit alternation always uses exactly 2 digits (twodig), forces some
+    // digit's count ≥4 by pigeonhole (quaddigit), and its first 4/5 chars always match the
+    // local ABAB/ABABA block patterns.
+    subsumes: ["twodig", "quaddigit", "blockxyxy", "blockxyxyx"],
   },
   {
     id: "threeup",
@@ -644,6 +672,9 @@ const PLATE_PERKS = [
     desc: "מחצית הלוחית הראשונה זהה למחצית השנייה (בלוחית בת 8 ספרות)",
     pts: 22,
     check: (d) => d.length === 8 && d.slice(0, 4) === d.slice(4),
+    // Duplicating a half always doubles every digit's count (allpairs) and trivially
+    // equalizes the two half-sums (balanced).
+    subsumes: ["allpairs", "balanced"],
   },
   {
     id: "doublestairs",
@@ -655,6 +686,10 @@ const PLATE_PERKS = [
       for (let i = 0; i < d.length; i += 2) if (d[i] !== d[i + 1]) return false;
       return true;
     },
+    // Pairing up digits always makes every digit's total count even. At length 8, the
+    // alternating-sum-of-digits divisibility rule for 11 also always nets to zero, since
+    // each pair puts the same value at one odd and one even index.
+    subsumes: ["allpairs", "mult11"],
   },
   // Block patterns: a contiguous run somewhere in the plate matching the shape,
   // with X≠Y enforced by the (?!\1) lookahead so they don't collapse into a run.
@@ -685,6 +720,8 @@ const PLATE_PERKS = [
     desc: "תבנית מתחלפת באורך חמש (א-ב-א-ב-א)",
     pts: 16,
     check: (d) => /(\d)(?!\1)(\d)\1\2\1/.test(d),
+    // Any 5-char ABABA window contains ABAB as its own first 4 chars.
+    subsumes: ["blockxyxy"],
   },
   {
     id: "blockxxxyyy",
@@ -692,6 +729,11 @@ const PLATE_PERKS = [
     desc: "שתי שלשות צמודות של ספרות זהות שונות (א-א-א-ב-ב-ב)",
     pts: 22,
     check: (d) => /(\d)\1\1(?!\1)(\d)\2\2/.test(d),
+    // An AAABBB block is itself 2 disjoint qualifying runs (twotriplerun), and its middle 4
+    // chars (AABB) always match the local block pattern. NOT triplerun: this is a local
+    // 6-char window with no spans, so listing triplerun here would let an unrelated 4th
+    // same-digit run elsewhere on the plate (e.g. "0000111") get wrongly discarded.
+    subsumes: ["twotriplerun", "blockxxyy"],
   },
 
   // ── Math ────────────────────────────────────────────────────────────────────
@@ -722,6 +764,8 @@ const PLATE_PERKS = [
     desc: "מספר הלוחית מתחלק ב-10,000",
     pts: 12,
     check: (d) => Number(d) % 10000 === 0,
+    // Divisible by 10000 forces the plate to end "0000", which ends "000" too.
+    subsumes: ["round"],
   },
   {
     id: "perfectsq",
@@ -836,7 +880,8 @@ const PLATE_PERKS = [
     pts: 32,
     check: (d) =>
       new Set(d).size > 1 && d === d.split("").reverse().join("") && isPrime(Number(d)),
-    subsumes: ["palindrome"],
+    // Own check already ANDs isPrime — prime is a direct restatement, not just an inference.
+    subsumes: ["palindrome", "prime"],
   },
 
   // ── Contains ───────────────────────────────────────────────────────────────
@@ -888,6 +933,8 @@ const PLATE_PERKS = [
     desc: "הרצף 1967 מופיע בלוחית — שנת מלחמת ששת הימים",
     pts: 10,
     check: (d) => d.includes("1967"),
+    // "1967" contains "67" as a literal substring.
+    subsumes: ["sixtyseven"],
   },
   {
     id: "yomkippur",
@@ -937,6 +984,8 @@ const PLATE_PERKS = [
     desc: "הרצף 420 מופיע בלוחית",
     pts: 4,
     check: (d) => d.includes("420"),
+    // "420" contains "42" as a literal substring (equal points; kept as a strict subset).
+    subsumes: ["contains42"],
   },
   {
     id: "today",
@@ -971,6 +1020,10 @@ const PLATE_PERKS = [
       }
       return true;
     },
+    // At length 8, 4 mirrored pairs each summing to 9 force the total digit sum to be
+    // exactly 4×9=36. (Unsatisfiable at length 7 — the middle digit would need 2×d=9 —
+    // so this is vacuously safe there.)
+    subsumes: ["gematria36"],
   },
   {
     id: "nondecreasing",
@@ -1012,7 +1065,8 @@ const PLATE_PERKS = [
     desc: "גבעה שבה הספרה הראשונה והאחרונה זהות",
     pts: 22,
     check: (d) => isHill(d) && d[0] === d[d.length - 1],
-    subsumes: ["hill"],
+    // Own check already ANDs d[0]===d[last].
+    subsumes: ["hill", "sameedges"],
   },
   {
     id: "perfectvalley",
@@ -1020,7 +1074,8 @@ const PLATE_PERKS = [
     desc: "גיא שבו הספרה הראשונה והאחרונה זהות",
     pts: 22,
     check: (d) => isValley(d) && d[0] === d[d.length - 1],
-    subsumes: ["valley"],
+    // Own check already ANDs d[0]===d[last].
+    subsumes: ["valley", "sameedges"],
   },
 
   // ── Special / themed ─────────────────────────────────────────────────────────
@@ -1173,4 +1228,14 @@ function getPerkDescriptions() {
   return PLATE_PERKS.map(({ name, desc }) => ({ name, desc }));
 }
 
-module.exports = { buildRollPayload, scoreRecord, tierFor, formatPlate, getPerkDescriptions, streakBonus };
+module.exports = {
+  buildRollPayload,
+  scoreRecord,
+  tierFor,
+  formatPlate,
+  getPerkDescriptions,
+  streakBonus,
+  // Exported for scripts/check-perk-overlaps.js only — still server-side, never reaches public/.
+  PLATE_PERKS,
+  scorePlate,
+};
