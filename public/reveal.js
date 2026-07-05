@@ -97,6 +97,18 @@ window.Reveal = (function () {
       .join("\n");
   }
 
+  // The top 3 plate-number perks (by points) as Hebrew lines for share text. Perk
+  // names are already Hebrew, so they slot straight into the rest of the message.
+  // Returns "" when the plate earned no perks.
+  function sharePerkLines(payload) {
+    return (payload.platePerks ?? [])
+      .slice()
+      .sort((a, b) => (b.pts ?? 0) - (a.pts ?? 0))
+      .slice(0, 3)
+      .map((p) => `🏅 ${p.name}`)
+      .join("\n");
+  }
+
   function countUp(el, from, to, duration, format) {
     return new Promise((resolve) => {
       const start = performance.now();
@@ -288,5 +300,5 @@ window.Reveal = (function () {
     resultEl.classList.remove("hidden");
   }
 
-  return { tierFor, pulseClassFor, pointEmoji, shareDetailLines, countUp, ensureRatingNode, revealScoring, showResultInstant, renderStreak, streakTier };
+  return { tierFor, pulseClassFor, pointEmoji, shareDetailLines, sharePerkLines, countUp, ensureRatingNode, revealScoring, showResultInstant, renderStreak, streakTier };
 })();
