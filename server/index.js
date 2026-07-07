@@ -12,6 +12,7 @@ const { buildRollPayload, streakBonus } = require("./scoring");
 const { insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
+const reactions = require("./reactions");
 const admin = require("./admin");
 const push = require("./push");
 
@@ -52,6 +53,7 @@ app.use((req, _res, next) => {
 // Auth + user-data routes.
 app.use("/api/auth", auth.router);
 app.use("/api", rolls.router);
+app.use("/api", reactions.router);
 app.use("/api/admin", admin.router);
 app.use("/api/push", push.router);
 

@@ -68,6 +68,7 @@
 
   <script src="perks.js"></script>
   <script src="breakdown.js"></script>
+  <script src="reactions.js"></script>
   <script>
     (async function () {
       const emptyMsg = document.getElementById("emptyMsg");
@@ -90,6 +91,7 @@
           <span class="profile-roll-score mono">${roll.score}</span>`;
         card.appendChild(head);
         card.appendChild(Breakdown.buildBreakdownDl(roll.payload));
+        if (roll.id != null) card.appendChild(Reactions.renderBar(roll.id, roll.reactions));
         return card;
       }
       function emptyNote(text) {
