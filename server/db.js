@@ -110,6 +110,17 @@ db.exec(`
     ends_at    TEXT NOT NULL,                              -- popup hidden once datetime('now') passes this
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS reactions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    roll_id    INTEGER NOT NULL REFERENCES rolls(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    emoji      TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(roll_id, user_id, emoji)                        -- one user, one of each emoji per roll
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_reactions_roll ON reactions(roll_id);
 `);
 
 // Additive migration: add is_admin column if this is an existing database.
@@ -211,7 +222,7 @@ function getTodayRoll(userId) {
   const off = israelOffset();
   return db
     .prepare(
-      `SELECT payload_json FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}') ORDER BY created_at DESC LIMIT 1`
+      `SELECT id, payload_json FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}') ORDER BY created_at DESC LIMIT 1`
     )
     .get(userId);
 }
@@ -276,7 +287,7 @@ function getUserTotalScore(userId) {
 function getUserBestRoll(userId) {
   return db
     .prepare(
-      `SELECT plate_display, score, tier, payload_json, created_at
+      `SELECT id, plate_display, score, tier, payload_json, created_at
        FROM rolls WHERE user_id = ? ORDER BY score DESC, created_at ASC LIMIT 1`
     )
     .get(userId);
@@ -342,7 +353,7 @@ function getLeaderboard(limit = 50, period = 'today') {
     }[period];
     return db
       .prepare(
-        `SELECT u.username, r.plate_display, r.score, r.tier, r.created_at, r.payload_json
+        `SELECT r.id, u.username, r.plate_display, r.score, r.tier, r.created_at, r.payload_json
          FROM rolls r JOIN users u ON u.id = r.user_id
          ${where}
          ORDER BY r.score DESC, r.created_at ASC LIMIT ?`
@@ -411,6 +422,67 @@ function getStreakLeaderboard(limit = 50) {
 
   result.sort((a, b) => b.streak - a.streak || a.username.localeCompare(b.username));
   return result.slice(0, limit);
+}
+
+// ── Reactions (emoji reactions on rolls) ──────────────────────────────────────
+
+// Toggle one emoji for one user on one roll. Returns { reacted } — true when the
+// reaction was just added, false when it was removed. The UNIQUE(roll_id, user_id,
+// emoji) constraint keeps a user to one of each emoji per roll.
+function toggleReaction(rollId, userId, emoji) {
+  const existing = db
+    .prepare(`SELECT 1 FROM reactions WHERE roll_id = ? AND user_id = ? AND emoji = ? LIMIT 1`)
+    .get(rollId, userId, emoji);
+  if (existing) {
+    db.prepare(`DELETE FROM reactions WHERE roll_id = ? AND user_id = ? AND emoji = ?`)
+      .run(rollId, userId, emoji);
+    return { reacted: false };
+  }
+  db.prepare(`INSERT INTO reactions (roll_id, user_id, emoji) VALUES (?, ?, ?)`)
+    .run(rollId, userId, emoji);
+  return { reacted: true };
+}
+
+// Aggregate emoji counts for a set of rolls in one query. Returns
+// { [rollId]: { emoji: count } }. Empty (and empty input) yields {}.
+function getReactionsForRolls(rollIds) {
+  if (!rollIds.length) return {};
+  const placeholders = rollIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT roll_id, emoji, COUNT(*) AS count
+       FROM reactions WHERE roll_id IN (${placeholders})
+       GROUP BY roll_id, emoji`
+    )
+    .all(...rollIds);
+  const out = {};
+  for (const { roll_id, emoji, count } of rows) {
+    (out[roll_id] ||= {})[emoji] = count;
+  }
+  return out;
+}
+
+// The emojis a single user has reacted with, across a set of rolls. Returns
+// { [rollId]: [emoji, ...] }.
+function getUserReactionsForRolls(rollIds, userId) {
+  if (!rollIds.length) return {};
+  const placeholders = rollIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT roll_id, emoji FROM reactions
+       WHERE user_id = ? AND roll_id IN (${placeholders})`
+    )
+    .all(userId, ...rollIds);
+  const out = {};
+  for (const { roll_id, emoji } of rows) {
+    (out[roll_id] ||= []).push(emoji);
+  }
+  return out;
+}
+
+// True if a roll exists (used to reject reactions on unknown rolls).
+function rollExists(rollId) {
+  return db.prepare(`SELECT 1 FROM rolls WHERE id = ? LIMIT 1`).get(rollId) != null;
 }
 
 // ── Push subscriptions (daily roll reminders) ─────────────────────────────────
@@ -663,6 +735,10 @@ module.exports = {
   getLiveStreak,
   getLeaderboard,
   getStreakLeaderboard,
+  toggleReaction,
+  getReactionsForRolls,
+  getUserReactionsForRolls,
+  rollExists,
   saveSubscription,
   deleteSubscription,
   deleteSubscriptionById,

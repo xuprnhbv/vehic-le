@@ -60,6 +60,7 @@
       <div class="featured-plate" id="featuredPlate"></div>
       <div class="featured-user" id="featuredUser"></div>
       <dl class="featured-fields hidden" id="featuredFields"></dl>
+      <div id="featuredReactions"></div>
     </div>
 
     <section class="list-panel">
@@ -75,6 +76,7 @@
 
   <script src="perks.js"></script>
   <script src="breakdown.js"></script>
+  <script src="reactions.js"></script>
   <script>
     const buildBreakdownDl = Breakdown.buildBreakdownDl;
 
@@ -92,6 +94,7 @@
     const featuredPlate = document.getElementById("featuredPlate");
     const featuredUser = document.getElementById("featuredUser");
     const featuredFields = document.getElementById("featuredFields");
+    const featuredReactions = document.getElementById("featuredReactions");
     const perkToggle = document.getElementById("perkToggle");
 
     let excludePerks = false;
@@ -146,6 +149,8 @@
           } else {
             featuredFields.classList.add("hidden");
           }
+          featuredReactions.innerHTML = "";
+          if (top.id != null) featuredReactions.appendChild(Reactions.renderBar(top.id, top.reactions));
           featuredRoll.classList.remove("hidden");
         } else if (period === "streaks") {
           renderStreakHead();
@@ -194,6 +199,7 @@
             const td = document.createElement("td");
             td.colSpan = 6;
             td.appendChild(detailContent);
+            if (row.id != null) td.appendChild(Reactions.renderBar(row.id, row.reactions));
             detailTr.appendChild(td);
             tbody.appendChild(detailTr);
             tr.addEventListener("click", (e) => {

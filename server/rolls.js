@@ -6,6 +6,7 @@ const express = require("express");
 const db = require("./db");
 const { requireAuth } = require("./auth");
 const { getPerkDescriptions, tierFor } = require("./scoring");
+const { buildReactions } = require("./reactions");
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ router.get("/leaderboard", (req, res, next) => {
     const PER_ROLL = new Set(["today", "30days", "alltime"]);
     if (PER_ROLL.has(period) && req.query.excludePerks === "1") {
       const pool = db.getLeaderboard(500, period);
-      const reranked = pool
+      const top = pool
         .map((r) => {
           const payload = r.payload_json ? JSON.parse(r.payload_json) : null;
           const perkPts = payload?.platePerks?.reduce((s, p) => s + p.pts, 0) ?? 0;
@@ -85,20 +86,29 @@ router.get("/leaderboard", (req, res, next) => {
           return { ...r, score: vehicleScore, tier: tierFor(vehicleScore), payload };
         })
         .sort((a, b) => b.score - a.score || a.created_at.localeCompare(b.created_at))
-        .slice(0, 100)
-        .map((r, i) => ({
-          rank: i + 1,
-          username: r.username,
-          plate: r.plate_display,
-          score: r.score,
-          tier: r.tier,
-          createdAt: r.created_at,
-          payload: r.payload,
-        }));
+        .slice(0, 100);
+      const reactions = buildReactions(top.map((r) => r.id), req.user?.id);
+      const reranked = top.map((r, i) => ({
+        rank: i + 1,
+        id: r.id,
+        username: r.username,
+        plate: r.plate_display,
+        score: r.score,
+        tier: r.tier,
+        createdAt: r.created_at,
+        payload: r.payload,
+        reactions: reactions[r.id],
+      }));
       return res.json({ leaderboard: reranked });
     }
 
-    const rows = db.getLeaderboard(100, period).map((r, i) => ({
+    const raw = db.getLeaderboard(100, period);
+    // Reactions only make sense for per-roll scopes (each row is a real roll with an id);
+    // the 'overall' scope aggregates per user and has no roll id.
+    const reactions = PER_ROLL.has(period)
+      ? buildReactions(raw.map((r) => r.id), req.user?.id)
+      : {};
+    const rows = raw.map((r, i) => ({
       rank: i + 1,
       username: r.username,
       plate: r.plate_display,
@@ -106,6 +116,7 @@ router.get("/leaderboard", (req, res, next) => {
       tier: r.tier,
       createdAt: r.created_at,
       payload: r.payload_json ? JSON.parse(r.payload_json) : null,
+      ...(PER_ROLL.has(period) ? { id: r.id, reactions: reactions[r.id] } : {}),
     }));
     res.json({ leaderboard: rows });
   } catch (err) {
@@ -126,11 +137,13 @@ router.get("/profile/:username", (req, res, next) => {
       if (!row) return null;
       const payload = JSON.parse(row.payload_json);
       return {
+        id: row.id,
         plate: payload.plate.display,
         score: payload.score,
         tier: payload.tier,
         createdAt: row.created_at ?? null,
         payload,
+        reactions: buildReactions([row.id], req.user?.id)[row.id],
       };
     };
 
