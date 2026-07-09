@@ -38,13 +38,15 @@ const WELCOME_NOTIFICATION = {
   url: "/",
 };
 
-// Confirm a brand-new subscription by pushing a notification straight back to it.
+// Confirm a subscription by pushing a notification straight back to it.
 // Best-effort: the subscription is already saved, so a delivery hiccup here must
 // not fail the request. A 404/410 means the endpoint is already dead — prune it.
+// High urgency so Android delivers immediately even in Doze/battery-saver — the
+// user is looking at their phone waiting for this; a deferred send reads as broken.
 async function sendSubscriptionConfirmation(sub) {
   const payload = JSON.stringify(WELCOME_NOTIFICATION);
   try {
-    await webpush.sendNotification(sub, payload);
+    await webpush.sendNotification(sub, payload, { urgency: "high", TTL: 600 });
   } catch (err) {
     if (err.statusCode === 404 || err.statusCode === 410) {
       db.deleteSubscription(sub.endpoint);
@@ -61,17 +63,17 @@ router.post("/subscribe", requireAuth, async (req, res) => {
   if (!sub || !sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) {
     return res.status(400).json({ error: "invalid subscription" });
   }
-  let isNew;
   try {
-    isNew = db.saveSubscription(req.user.id, sub);
+    db.saveSubscription(req.user.id, sub);
   } catch (err) {
     console.error(`[push] subscribe failed: ${err.message}`);
     return res.status(500).json({ error: "subscribe failed" });
   }
   res.json({ ok: true });
-  // Only greet a genuinely new subscription — refreshing an existing one (same
-  // endpoint on every page load) shouldn't re-notify the user.
-  if (isNew) await sendSubscriptionConfirmation(sub);
+  // The client only POSTs here on an explicit bell toggle, so every call is a
+  // deliberate opt-in — always confirm, even when the browser handed back an
+  // endpoint we already know (Chrome reuses endpoints across re-subscribes).
+  await sendSubscriptionConfirmation(sub);
 });
 
 // Drop a subscription (user toggled reminders off / unsubscribed in the browser).
