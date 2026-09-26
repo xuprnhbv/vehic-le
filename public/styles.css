@@ -1851,10 +1851,10 @@ tr.msg-read { opacity: 0.55; }
 
 /* ------- Profile page ------- */
 /* All stat cards share one row at every width; text scales with the row's width
-   (cqi = 1% of .profile-stats' inline size) so five cards fit even on a phone. */
+   (cqi = 1% of .profile-stats' inline size) so six cards fit even on a phone. */
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: clamp(0.35rem, 1.5cqi, 0.8rem);
   margin: 1.5rem 0;
   container-type: inline-size;
@@ -1917,4 +1917,23 @@ tr.msg-read { opacity: 0.55; }
   font-size: 1.3rem;
   font-weight: 800;
   color: var(--accent);
+}
+
+/* Perk summary: chip + times-earned count, wrapping into as many columns as fit. */
+.profile-perks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem 1.1rem;
+}
+
+.profile-perk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.profile-perk-count {
+  font-weight: 800;
+  color: var(--muted);
 }

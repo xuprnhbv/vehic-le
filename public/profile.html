@@ -53,6 +53,10 @@
           <p class="profile-stat-value" id="statRolls">0</p>
         </div>
         <div class="profile-stat">
+          <p class="profile-stat-label">ממוצע גלגול</p>
+          <p class="profile-stat-value" id="statAverage">—</p>
+        </div>
+        <div class="profile-stat">
           <p class="profile-stat-label">חבר/ה מאז</p>
           <p class="profile-stat-value small" id="statSince">—</p>
         </div>
@@ -66,6 +70,11 @@
       <section>
         <h2 class="profile-section-title">הגלגול של היום</h2>
         <div id="todayRollSlot"></div>
+      </section>
+
+      <section>
+        <h2 class="profile-section-title">בונוסי לוחית שהושגו</h2>
+        <div id="perkCountsSlot"></div>
       </section>
     </div>
   </main>
@@ -97,6 +106,21 @@
         card.appendChild(Breakdown.buildBreakdownDl(roll.payload));
         if (roll.id != null) card.appendChild(Reactions.renderBar(roll.id, roll.reactions));
         return card;
+      }
+      // One row per earned perk: the shared (tappable) chip plus how many times it hit.
+      function perkCountsList(perkCounts) {
+        const list = document.createElement("div");
+        list.className = "profile-perks list-panel";
+        for (const { name, count, pts } of perkCounts) {
+          const item = document.createElement("div");
+          item.className = "profile-perk";
+          const countEl = document.createElement("span");
+          countEl.className = "profile-perk-count mono";
+          countEl.textContent = `×${count.toLocaleString("he-IL")}`;
+          item.append(Perks.createChip(name, pts, { pop: true }), countEl);
+          list.appendChild(item);
+        }
+        return list;
       }
       function emptyNote(text) {
         const p = document.createElement("p");
@@ -131,6 +155,10 @@
         streakEl.classList.toggle("small", !(p.currentStreak > 0));
         document.getElementById("statSavers").textContent = `${p.streakSavers ?? 0} 🛡️`;
         document.getElementById("statRolls").textContent = p.rollCount.toLocaleString("he-IL");
+        document.getElementById("statAverage").textContent =
+          p.averageScore != null
+            ? p.averageScore.toLocaleString("he-IL", { maximumFractionDigits: 1 })
+            : "—";
         document.getElementById("statSince").textContent = p.memberSince
           ? new Date(p.memberSince.replace(" ", "T") + "Z").toLocaleDateString("he-IL")
           : "—";
@@ -140,6 +168,11 @@
 
         const todaySlot = document.getElementById("todayRollSlot");
         todaySlot.appendChild(p.todayRoll ? rollCard(p.todayRoll) : emptyNote("עדיין לא גלגל/ה היום."));
+
+        const perksSlot = document.getElementById("perkCountsSlot");
+        perksSlot.appendChild(
+          p.perkCounts?.length ? perkCountsList(p.perkCounts) : emptyNote("עדיין לא הושגו בונוסי לוחית.")
+        );
 
         body.classList.remove("hidden");
       } catch {
