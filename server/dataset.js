@@ -5,6 +5,9 @@
 const RESOURCE_ID = "053cea08-09bc-40ec-8f7a-156f0677aff3";
 const API = "https://data.gov.il/api/3/action/datastore_search";
 const REFRESH_MS = 6 * 60 * 60 * 1000; // every 6 hours
+// While the datastore reports 0 rows (data.gov.il empties the table while it
+// re-imports), re-check the count at most this often so rolls recover on their own.
+const EMPTY_RECHECK_MS = 60 * 1000;
 
 // How many random records to keep pre-fetched for instant logged-in rolls.
 // Configurable via ROLL_CACHE_SIZE; defaults to 10, floored to a positive int.
@@ -13,24 +16,41 @@ const CACHE_TARGET = Math.max(1, Math.floor(Number(process.env.ROLL_CACHE_SIZE) 
 const randInt = (lo, hi) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
 
 let cachedTotal = null;
+let lastCountCheck = 0;
 
 // Background pool of pre-fetched random records. Logged-in rolls take from here
 // (instant) and trigger a refill; anonymous rolls bypass it (on-demand).
 const recordCache = [];
 let refilling = false;
 
+// Thrown when the upstream datastore has no rows to serve, so callers can tell a
+// data.gov.il outage apart from a generic failure (503 instead of 502).
+const datasetUnavailable = () =>
+  Object.assign(new Error("datastore reports 0 rows"), { code: "DATASET_UNAVAILABLE" });
+
+// True when the last successful count said the datastore is empty.
+const isDatasetEmpty = () => cachedTotal === 0;
+
 async function refreshTotal() {
   const url = `${API}?resource_id=${RESOURCE_ID}&limit=0`;
+  lastCountCheck = Date.now();
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    const total = json?.result?.total ?? 0;
-    if (!total) throw new Error("dataset reported 0 rows");
+    const total = json?.result?.total;
+    if (typeof total !== "number") throw new Error("response has no row count");
+    // A successful 0 is authoritative: the table really is empty. Keeping the old
+    // count here would send every roll to an offset that no longer exists.
+    if (total === 0) {
+      if (cachedTotal !== 0) console.error("[dataset] datastore reports 0 rows — rolls unavailable");
+      cachedTotal = 0;
+      return cachedTotal;
+    }
     cachedTotal = total;
     console.log(`[dataset] row count refreshed: ${cachedTotal}`);
   } catch (err) {
-    // Keep the previous value on failure so rolls can continue.
+    // Keep the previous value on a network/HTTP failure so rolls can continue.
     console.error(`[dataset] row count refresh failed: ${err.message}`);
   }
   return cachedTotal;
@@ -64,13 +84,23 @@ async function fetchRecordByPlate(plate) {
 }
 
 async function rollRecord() {
-  // Lazily populate the cache if the startup refresh hasn't landed yet.
-  if (cachedTotal === null) await refreshTotal();
+  // Lazily populate the count if the startup refresh hasn't landed yet, and
+  // re-check (throttled) while the datastore is empty so we recover promptly.
+  if (cachedTotal === null || (cachedTotal === 0 && Date.now() - lastCountCheck > EMPTY_RECHECK_MS)) {
+    await refreshTotal();
+  }
+  if (cachedTotal === 0) throw datasetUnavailable();
   if (!cachedTotal) throw new Error("no dataset row count available");
   const offset = randInt(0, cachedTotal - 1);
   const record = await fetchRecordAt(offset);
-  if (!record) throw new Error(`no record at offset ${offset}`);
-  return record;
+  if (record) return record;
+  // An empty offset means our count is stale (the table shrank or was emptied):
+  // refresh it and retry once before giving up.
+  await refreshTotal();
+  if (cachedTotal === 0) throw datasetUnavailable();
+  const retry = await fetchRecordAt(randInt(0, cachedTotal - 1));
+  if (!retry) throw new Error(`no record at offset ${offset}`);
+  return retry;
 }
 
 // Fetch one record at a random offset, swallowing errors (returns null) so a
@@ -114,4 +144,4 @@ async function takeCachedRecord() {
   return rollRecord();
 }
 
-module.exports = { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate };
+module.exports = { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate, isDatasetEmpty };

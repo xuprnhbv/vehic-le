@@ -7,7 +7,7 @@ const session = require("express-session");
 const SqliteStore = require("./session-store")(session);
 const passport = require("passport");
 
-const { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate } = require("./dataset");
+const { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate, isDatasetEmpty } = require("./dataset");
 const { buildRollPayload, streakBonus } = require("./scoring");
 const { insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage } = require("./db");
 const auth = require("./auth");
@@ -131,6 +131,9 @@ app.get("/api/roll", async (req, res) => {
     res.json({ ...payload, rank });
   } catch (err) {
     console.error(`[roll] failed: ${err.message}`);
+    if (err.code === "DATASET_UNAVAILABLE") {
+      return res.status(503).json({ error: "dataset_unavailable" });
+    }
     res.status(502).json({ error: "roll failed" });
   }
 });
@@ -161,6 +164,9 @@ app.get("/api/rate", async (req, res) => {
   }
   try {
     const record = await fetchRecordByPlate(digits);
+    if (!record && isDatasetEmpty()) {
+      return res.status(503).json({ error: "מאגר הרכבים של data.gov.il לא זמין כרגע, נסו שוב מאוחר יותר" });
+    }
     if (!record) {
       return res.status(404).json({ error: "הרכב לא נמצא במאגר הרכבים" });
     }
