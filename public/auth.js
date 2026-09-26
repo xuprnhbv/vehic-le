@@ -47,7 +47,7 @@
 
   function renderLoggedIn(user) {
     authArea.innerHTML = `
-      <span class="user-name">שלום, ${user.username}</span>
+      <span class="user-name">שלום, <a class="username-link" href="/profile.html?user=${encodeURIComponent(user.username)}" title="הפרופיל שלי">${user.username}</a></span>
       <button type="button" class="logout-btn">התנתק</button>`;
     authArea.querySelector(".logout-btn").addEventListener("click", logout);
     historyLink.classList.remove("hidden");

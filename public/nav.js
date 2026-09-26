@@ -10,7 +10,7 @@
     if (adminLink)   adminLink.classList.toggle("hidden", !user.isAdmin);
     if (!authArea)   return;
     authArea.innerHTML = `
-      <span class="user-name">שלום, ${user.username}</span>
+      <span class="user-name">שלום, <a class="username-link" href="/profile.html?user=${encodeURIComponent(user.username)}" title="הפרופיל שלי">${user.username}</a></span>
       <button type="button" class="logout-btn" id="navLogout">התנתק</button>`;
     document.getElementById("navLogout").addEventListener("click", () => {
       fetch("/api/auth/logout", { method: "POST" }).then(() => {
