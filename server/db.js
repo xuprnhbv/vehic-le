@@ -508,6 +508,29 @@ function getUserRollCount(userId) {
   return db.prepare(`SELECT COUNT(*) AS cnt FROM rolls WHERE user_id = ?`).get(userId)?.cnt ?? 0;
 }
 
+// Mean plate score over all of a user's rolls (streak bonus excluded, like rolls.score).
+// null when the user has never rolled.
+function getUserAverageScore(userId) {
+  return db.prepare(`SELECT AVG(score) AS avg FROM rolls WHERE user_id = ?`).get(userId)?.avg ?? null;
+}
+
+// How many of the user's rolls earned each plate perk, read from the stored payloads'
+// platePerks arrays. Most-earned first; pts is the latest value seen for that perk.
+function getUserPerkCounts(userId) {
+  return db
+    .prepare(
+      `SELECT json_extract(p.value, '$.name') AS name,
+              COUNT(*) AS count,
+              MAX(json_extract(p.value, '$.pts')) AS pts
+       FROM rolls r, json_each(r.payload_json, '$.platePerks') p
+       WHERE r.user_id = ?
+       GROUP BY name
+       ORDER BY count DESC, pts DESC, name`
+    )
+    .all(userId)
+    .map((r) => ({ name: r.name, count: r.count, pts: r.pts }));
+}
+
 // The user's current streak *as of now* — returns 0 when broken (no roll today or
 // yesterday, counting saver-covered days). Unlike getCurrentStreak, this does NOT assume
 // a roll is being made right now, so it's the honest value for a passive profile view.
@@ -923,6 +946,8 @@ module.exports = {
   getUserTotalScore,
   getUserBestRoll,
   getUserRollCount,
+  getUserAverageScore,
+  getUserPerkCounts,
   getLiveStreak,
   getLeaderboard,
   getStreakLeaderboard,

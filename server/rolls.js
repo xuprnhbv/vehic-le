@@ -133,7 +133,8 @@ router.get("/leaderboard", (req, res, next) => {
 // Public profile for a user, keyed by username (profiles are reached by clicking other
 // players' names on the leaderboard, so no auth). Returns the headline stats plus the
 // best-ever and today's rolls (full payloads so the client renders the same breakdown as
-// the leaderboard). bestRoll/todayRoll are null when absent.
+// the leaderboard). bestRoll/todayRoll/averageScore are null when absent; perkCounts is
+// [{ name, count, pts }], most-earned first.
 router.get("/profile/:username", (req, res, next) => {
   try {
     const user = db.findUserByUsername(req.params.username);
@@ -158,6 +159,8 @@ router.get("/profile/:username", (req, res, next) => {
       memberSince: user.created_at,
       totalScore: db.getUserTotalScore(user.id),
       rollCount: db.getUserRollCount(user.id),
+      averageScore: db.getUserAverageScore(user.id),
+      perkCounts: db.getUserPerkCounts(user.id),
       currentStreak: db.getLiveStreak(user.id),
       streakSavers: db.getStreakSavers(user.id),
       bestRoll: toRoll(db.getUserBestRoll(user.id)),
