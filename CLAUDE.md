@@ -99,6 +99,9 @@ bridges that **don't add** to the count (10 days → saver → roll = 11).
   `grantOutageSaver` gives *every* user +1, at most once per Israel day (`outage_grants`).
   Generic fetch/HTTP failures don't trigger it.
 - The roll payload carries `saversUsed`, `saverEarned`, `streakSavers` for the banner.
+- **Launch backfill:** `backfillStreakSavers` ran once at the first boot with savers, giving
+  each user `floor(live streak / 10)`. The `data_migrations` table records it so it never
+  repeats — reuse that table for other one-time data migrations.
 
 ## How auth flows
 

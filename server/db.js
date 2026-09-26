@@ -169,6 +169,12 @@ db.exec(`
     day        TEXT PRIMARY KEY,                           -- Israel calendar date of the outage
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- Names of one-time data migrations that have already run (see backfillStreakSavers).
+  CREATE TABLE IF NOT EXISTS data_migrations (
+    name       TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // ── Users ─────────────────────────────────────────────────────────────────────
@@ -372,6 +378,34 @@ function grantOutageSaver() {
   if (info.changes === 0) return false;
   db.prepare(`UPDATE users SET streak_savers = streak_savers + 1`).run();
   return true;
+}
+
+// One-time launch grant: savers for streaks built before savers existed — one per full
+// 10 days of the user's current live streak (30–39 → 3, 40–49 → 4, …). Runs once
+// ever, guarded by data_migrations. Returns how many users were awarded (null if it
+// already ran).
+function backfillStreakSavers() {
+  const NAME = "streak_savers_launch_backfill";
+  if (db.prepare(`SELECT 1 FROM data_migrations WHERE name = ?`).get(NAME)) return null;
+
+  const award = db.prepare(`UPDATE users SET streak_savers = streak_savers + ? WHERE id = ?`);
+  let awarded = 0;
+  db.exec("BEGIN");
+  try {
+    for (const { id } of db.prepare(`SELECT id FROM users`).all()) {
+      const savers = Math.floor(liveStreakFrom(rolledDays(id), savedDays(id)) / 10);
+      if (savers > 0) {
+        award.run(savers, id);
+        awarded++;
+      }
+    }
+    db.prepare(`INSERT INTO data_migrations (name) VALUES (?)`).run(NAME);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+  return awarded;
 }
 
 function insertRoll(userId, payload) {
@@ -834,6 +868,7 @@ module.exports = {
   countSavesSinceLastRoll,
   getStreakSavers,
   grantOutageSaver,
+  backfillStreakSavers,
   insertRoll,
   getUserHistory,
   getUserTotalScore,

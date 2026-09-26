@@ -12,6 +12,7 @@ const { buildRollPayload, streakBonus, earnsStreakSaver } = require("./scoring")
 const {
   insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage,
   settleStreakSavers, settleAllStreakSavers, countSavesSinceLastRoll, getStreakSavers, grantOutageSaver,
+  backfillStreakSavers,
 } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
@@ -206,6 +207,14 @@ function settleSavers() {
   } catch (err) {
     console.error(`[savers] settle failed: ${err.message}`);
   }
+}
+// One-time launch grant: savers for streaks built before savers existed (no-op after
+// the first boot).
+try {
+  const awarded = backfillStreakSavers();
+  if (awarded !== null) console.log(`[savers] launch backfill awarded savers to ${awarded} user(s)`);
+} catch (err) {
+  console.error(`[savers] launch backfill failed: ${err.message}`);
 }
 settleSavers();
 setInterval(settleSavers, 10 * 60 * 1000).unref();
