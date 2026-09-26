@@ -38,6 +38,20 @@ window.Reveal = (function () {
     return "🔥".repeat(tier);
   }
 
+  // Streak-saver lines for the banner: savers spent on missed days since the last
+  // roll, and one earned by this roll (every 10 days). Empty when neither happened.
+  function saverNotes(payload) {
+    const lines = [];
+    const used = payload.saversUsed ?? 0;
+    if (used === 1) lines.push("🛡️ מגן רצף הציל את הרצף שלך!");
+    else if (used > 1) lines.push(`🛡️ ${used} מגיני רצף הצילו את הרצף שלך!`);
+    if (payload.saverEarned) lines.push("🛡️ +1 מגן רצף על 10 ימים ברצף!");
+    if (!lines.length) return "";
+    const left = payload.streakSavers ?? 0;
+    return lines.map((t) => `<span class="streak-saver">${t}</span>`).join("") +
+      `<span class="streak-note">מגיני רצף במלאי: ${left}</span>`;
+  }
+
   // Build (and optionally animate) the streak banner shown under the rating. The
   // bonus counts toward the overall/total score — never the plate score or tier.
   // Returns the node, or null when there's no streak to show.
@@ -58,6 +72,7 @@ window.Reveal = (function () {
         <span class="streak-count">רצף של ${streak} ${streak === 1 ? "יום" : "ימים"}!</span>
         <span class="streak-bonus">+0</span>
         <span class="streak-note">לניקוד הכולל</span>
+        ${saverNotes(payload)}
       </span>`;
     // Place right after the rating block.
     const rating = resultEl.querySelector("#rating");

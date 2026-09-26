@@ -153,6 +153,7 @@ router.get("/profile/:username", (req, res, next) => {
       totalScore: db.getUserTotalScore(user.id),
       rollCount: db.getUserRollCount(user.id),
       currentStreak: db.getLiveStreak(user.id),
+      streakSavers: db.getStreakSavers(user.id),
       bestRoll: toRoll(db.getUserBestRoll(user.id)),
       todayRoll: toRoll(db.getTodayRoll(user.id)),
     });

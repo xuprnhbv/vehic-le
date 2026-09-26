@@ -1153,6 +1153,15 @@ function streakBonus(streak) {
   return bonus;
 }
 
+// ── Streak savers ───────────────────────────────────────────────────────────
+// Every SAVER_EVERY consecutive rolled days (10, 20, 30, …) awards one streak saver,
+// which is spent automatically to cover a missed day (see settleStreakSavers in db.js).
+const SAVER_EVERY = 10;
+
+function earnsStreakSaver(streak) {
+  return streak > 0 && streak % SAVER_EVERY === 0;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Percentile-based tiers, calibrated from a full 4,133,963-row fleet survey
@@ -1228,6 +1237,7 @@ module.exports = {
   formatPlate,
   getPerkDescriptions,
   streakBonus,
+  earnsStreakSaver,
   // Exported for scripts/check-perk-overlaps.js only — still server-side, never reaches public/.
   PLATE_PERKS,
   scorePlate,

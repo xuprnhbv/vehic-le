@@ -31,6 +31,20 @@ const datasetUnavailable = () =>
 // True when the last successful count said the datastore is empty.
 const isDatasetEmpty = () => cachedTotal === 0;
 
+// Callbacks fired every time a count comes back empty (i.e. rolling is down). Used to
+// hand out the free outage streak saver; listeners must be idempotent.
+const outageListeners = [];
+const onOutage = (fn) => outageListeners.push(fn);
+function notifyOutage() {
+  for (const fn of outageListeners) {
+    try {
+      fn();
+    } catch (err) {
+      console.error(`[dataset] outage listener failed: ${err.message}`);
+    }
+  }
+}
+
 async function refreshTotal() {
   const url = `${API}?resource_id=${RESOURCE_ID}&limit=0`;
   lastCountCheck = Date.now();
@@ -45,6 +59,7 @@ async function refreshTotal() {
     if (total === 0) {
       if (cachedTotal !== 0) console.error("[dataset] datastore reports 0 rows — rolls unavailable");
       cachedTotal = 0;
+      notifyOutage();
       return cachedTotal;
     }
     cachedTotal = total;
@@ -144,4 +159,4 @@ async function takeCachedRecord() {
   return rollRecord();
 }
 
-module.exports = { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate, isDatasetEmpty };
+module.exports = { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate, isDatasetEmpty, onOutage };
