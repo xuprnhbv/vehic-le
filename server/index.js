@@ -12,7 +12,7 @@ const { buildRollPayload, streakBonus, earnsStreakSaver } = require("./scoring")
 const {
   insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage,
   settleStreakSavers, settleAllStreakSavers, countSavesSinceLastRoll, getStreakSavers, grantOutageSaver,
-  backfillStreakSavers,
+  backfillStreakSavers, refundDeadStreakSaves,
 } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
@@ -215,6 +215,13 @@ try {
   if (awarded !== null) console.log(`[savers] launch backfill awarded savers to ${awarded} user(s)`);
 } catch (err) {
   console.error(`[savers] launch backfill failed: ${err.message}`);
+}
+// One-time repair: refund savers the first settle logic burned on dead streaks.
+try {
+  const refunded = refundDeadStreakSaves();
+  if (refunded !== null) console.log(`[savers] refunded ${refunded} saver(s) spent on dead streaks`);
+} catch (err) {
+  console.error(`[savers] dead-save refund failed: ${err.message}`);
 }
 settleSavers();
 setInterval(settleSavers, 10 * 60 * 1000).unref();

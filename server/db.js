@@ -310,11 +310,13 @@ function getCurrentStreak(userId) {
 
 // ── Streak savers ────────────────────────────────────────────────────────────
 
-// Spend the user's savers on each fully-missed day since their last covered day,
-// oldest first, up to yesterday (today isn't missed yet). Each missed day costs one
-// saver; if they run out, the rest of the gap breaks the streak and the spent savers
-// stay spent (one is used automatically per missed day). Users who never rolled have
-// no streak to save. Returns how many savers were spent.
+// Spend the user's savers on each fully-missed day since their last covered day, up to
+// yesterday (today isn't missed yet), one saver per day. Only when the balance covers
+// the *whole* gap: a gap it can't bridge means the streak is already lost, so nothing
+// is spent (dormant players keep their savers). The settle timer runs every 10 min,
+// so an active streak meets each missed day as a gap of one and spends a saver per
+// day until they run out. Users who never rolled have no streak to save. Returns how
+// many savers were spent.
 function settleStreakSavers(userId) {
   const balance = getStreakSavers(userId);
   if (balance <= 0) return 0;
@@ -325,10 +327,8 @@ function settleStreakSavers(userId) {
 
   const yesterday = shiftDay(israelToday(), -1);
   const days = [];
-  for (let d = shiftDay(last, 1); d <= yesterday && days.length < balance; d = shiftDay(d, 1)) {
-    days.push(d);
-  }
-  if (days.length === 0) return 0;
+  for (let d = shiftDay(last, 1); d <= yesterday; d = shiftDay(d, 1)) days.push(d);
+  if (days.length === 0 || days.length > balance) return 0;
 
   const insert = db.prepare(`INSERT OR IGNORE INTO streak_saves (user_id, day) VALUES (?, ?)`);
   db.exec("BEGIN");
@@ -414,6 +414,45 @@ function backfillStreakSavers() {
     throw err;
   }
   return awarded;
+}
+
+// One-time repair: the first settle logic spent savers on gaps too long to bridge,
+// burning them on long-dead streaks. Any saved day that isn't part of the user's live
+// streak chain is refunded (row deleted, saver returned). Only safe as a one-shot
+// right after launch, when every save is new — a save that legitimately bridged a
+// streak that later broke would also look "dead". Returns savers refunded (null if
+// it already ran).
+function refundDeadStreakSaves() {
+  const NAME = "refund_dead_streak_saves";
+  if (db.prepare(`SELECT 1 FROM data_migrations WHERE name = ?`).get(NAME)) return null;
+
+  const today = israelToday();
+  const del = db.prepare(`DELETE FROM streak_saves WHERE user_id = ? AND day = ?`);
+  const refund = db.prepare(`UPDATE users SET streak_savers = streak_savers + ? WHERE id = ?`);
+  let refunded = 0;
+  db.exec("BEGIN");
+  try {
+    for (const { user_id: id } of db.prepare(`SELECT DISTINCT user_id FROM streak_saves`).all()) {
+      const rolled = rolledDays(id);
+      const saved = savedDays(id);
+      const covered = (d) => rolled.has(d) || saved.has(d);
+      // Days of the live chain: back from today (or yesterday) across covered days.
+      const live = new Set();
+      let d = covered(today) ? today : shiftDay(today, -1);
+      for (; covered(d); d = shiftDay(d, -1)) live.add(d);
+
+      const dead = [...saved].filter((day) => !live.has(day));
+      for (const day of dead) del.run(id, day);
+      if (dead.length) refund.run(dead.length, id);
+      refunded += dead.length;
+    }
+    db.prepare(`INSERT INTO data_migrations (name) VALUES (?)`).run(NAME);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+  return refunded;
 }
 
 function insertRoll(userId, payload) {
@@ -878,6 +917,7 @@ module.exports = {
   getUserSaves,
   grantOutageSaver,
   backfillStreakSavers,
+  refundDeadStreakSaves,
   insertRoll,
   getUserHistory,
   getUserTotalScore,

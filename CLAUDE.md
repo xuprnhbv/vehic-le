@@ -92,9 +92,11 @@ bridges that **don't add** to the count (10 days → saver → roll = 11).
   [server/scoring.js](server/scoring.js)) gets +1, flagged by `rolls.saver_earned` so
   `deleteRoll`/`deleteTodayRoll` take it back (no farming via re-rolls).
 - **Spend:** `settleStreakSavers` spends one per fully-missed day since the last
-  rolled/saved day, oldest first, through *yesterday*. It runs at the start of `/api/roll`
-  and every 10 min for all users (`settleAllStreakSavers`, so profiles/leaderboard update
-  without a roll). If savers run out mid-gap, the streak breaks and the spent ones stay spent.
+  rolled/saved day, through *yesterday* — but only when the balance covers the **whole**
+  gap; an unbridgeable gap means the streak is already dead, so nothing is spent. It runs
+  at the start of `/api/roll` and every 10 min for all users (`settleAllStreakSavers`), so
+  an active streak meets each missed day as a gap of one and spends a saver per day
+  until they run out.
 - **Outage gift:** when data.gov.il reports 0 rows, `dataset.js` fires `onOutage` and
   `grantOutageSaver` gives *every* user +1, at most once per Israel day (`outage_grants`).
   Generic fetch/HTTP failures don't trigger it.
@@ -102,6 +104,8 @@ bridges that **don't add** to the count (10 days → saver → roll = 11).
 - **Launch backfill:** `backfillStreakSavers` ran once at the first boot with savers, giving
   each user `floor(live streak / 10)`. The `data_migrations` table records it so it never
   repeats — reuse that table for other one-time data migrations.
+- **Launch repair:** `refundDeadStreakSaves` (one-time) refunded savers that the first,
+  buggy settle logic spent on dormant players' long-dead streaks.
 
 ## How auth flows
 
