@@ -54,7 +54,7 @@
         </div>
         <div class="profile-stat">
           <p class="profile-stat-label">חבר/ה מאז</p>
-          <p class="profile-stat-value" id="statSince">—</p>
+          <p class="profile-stat-value small" id="statSince">—</p>
         </div>
       </section>
 
@@ -126,8 +126,9 @@
         document.getElementById("profileName").textContent = p.username;
         document.getElementById("profileTagline").textContent = "פרופיל שחקן";
         document.getElementById("statScore").textContent = p.totalScore.toLocaleString("he-IL");
-        document.getElementById("statStreak").textContent =
-          p.currentStreak > 0 ? `${p.currentStreak} 🔥` : "אין רצף פעיל";
+        const streakEl = document.getElementById("statStreak");
+        streakEl.textContent = p.currentStreak > 0 ? `${p.currentStreak} 🔥` : "אין רצף פעיל";
+        streakEl.classList.toggle("small", !(p.currentStreak > 0));
         document.getElementById("statSavers").textContent = `${p.streakSavers ?? 0} 🛡️`;
         document.getElementById("statRolls").textContent = p.rollCount.toLocaleString("he-IL");
         document.getElementById("statSince").textContent = p.memberSince

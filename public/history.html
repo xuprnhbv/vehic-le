@@ -35,6 +35,7 @@
     <section class="total-score-banner hidden" id="totalScoreBanner">
       <p class="total-score-label">ניקוד כולל</p>
       <p class="total-score-value" id="totalScoreValue">0</p>
+      <p class="savers-balance" id="saversBalance"></p>
     </section>
 
     <section class="list-panel">
@@ -57,6 +58,23 @@
       return "pulse-min";
     }
 
+    // Israel calendar day ('YYYY-MM-DD') of a UTC SQLite timestamp — the same day
+    // boundary the server uses for streaks and streak_saves.day.
+    const israelDay = (utc) =>
+      new Date(utc.replace(" ", "T") + "Z").toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+
+    // A non-clickable row marking a missed day that a streak saver covered.
+    function saveRow(day) {
+      const tr = document.createElement("tr");
+      tr.className = "save-row";
+      const date = new Date(day + "T12:00:00Z").toLocaleDateString("he-IL");
+      tr.innerHTML = `
+        <td>${date}</td>
+        <td colspan="3">🛡️ מגן רצף הגן על הרצף שלך</td>
+        <td></td>`;
+      return tr;
+    }
+
     (async function () {
       const tbody = document.querySelector("#board tbody");
       const board = document.getElementById("board");
@@ -72,15 +90,26 @@
           showEmpty("יש להתחבר כדי לראות את ההיסטוריה.");
           return;
         }
-        const { rolls, totalScore } = await res.json();
+        const { rolls, totalScore, streakSavers = 0, saves = [] } = await res.json();
         const banner = document.getElementById("totalScoreBanner");
         document.getElementById("totalScoreValue").textContent = totalScore.toLocaleString("he-IL");
+        document.getElementById("saversBalance").textContent =
+          `🛡️ ${streakSavers} ${streakSavers === 1 ? "מגן רצף" : "מגיני רצף"} במלאי`;
         banner.classList.remove("hidden");
         if (!rolls.length) {
           showEmpty("עדיין לא גלגלת. חזור לעמוד הראשי ונסה!");
           return;
         }
+        // Saves arrive newest first; emit each one just before the first roll from an
+        // earlier day, so they land in date order. Skip saves older than the oldest
+        // listed roll (the list is capped), so the tail never shows orphaned saves.
+        const oldestDay = israelDay(rolls[rolls.length - 1].createdAt);
+        const pendingSaves = saves.filter((d) => d >= oldestDay);
         for (const row of rolls) {
+          const rowDay = israelDay(row.createdAt);
+          while (pendingSaves.length && pendingSaves[0] > rowDay) {
+            tbody.appendChild(saveRow(pendingSaves.shift()));
+          }
           const date = new Date(row.createdAt.replace(" ", "T") + "Z").toLocaleString("he-IL");
           const tr = document.createElement("tr");
           tr.className = "roll-row";
@@ -142,6 +171,16 @@
               pts.className = `field-points ${pulseClassFor(row.payload.streakBonus)}`;
               pts.textContent = `+${row.payload.streakBonus}`;
               dd.append(valSpan, pts);
+              dl.append(dt, dd);
+            }
+            if (row.payload.saverEarned) {
+              const dt = document.createElement("dt");
+              dt.textContent = "מגן רצף";
+              const dd = document.createElement("dd");
+              const valSpan = document.createElement("span");
+              valSpan.className = "field-value";
+              valSpan.textContent = `🛡️ +1 על ${row.payload.streak} ימים ברצף`;
+              dd.appendChild(valSpan);
               dl.append(dt, dd);
             }
             td.appendChild(dl);
