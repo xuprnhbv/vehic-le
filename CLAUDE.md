@@ -81,6 +81,25 @@ streak flourish (`renderStreak`/`streakTier` in [public/reveal.js](public/reveal
 tiers in [public/styles.css](public/styles.css)); the anonymous `/api/rate` path sends no
 `streak`, so no streak UI appears.
 
+### Streak savers
+
+A **streak saver** covers one missed day so the streak survives. Balance lives in
+`users.streak_savers`; each covered day is a row in `streak_saves`. The streak walk
+(`walkStreak`/`liveStreakFrom` in [server/db.js](server/db.js)) treats saved days as
+bridges that **don't add** to the count (10 days → saver → roll = 11).
+
+- **Earn:** a roll whose streak hits a multiple of 10 (`earnsStreakSaver` in
+  [server/scoring.js](server/scoring.js)) gets +1, flagged by `rolls.saver_earned` so
+  `deleteRoll`/`deleteTodayRoll` take it back (no farming via re-rolls).
+- **Spend:** `settleStreakSavers` spends one per fully-missed day since the last
+  rolled/saved day, oldest first, through *yesterday*. It runs at the start of `/api/roll`
+  and every 10 min for all users (`settleAllStreakSavers`, so profiles/leaderboard update
+  without a roll). If savers run out mid-gap, the streak breaks and the spent ones stay spent.
+- **Outage gift:** when data.gov.il reports 0 rows, `dataset.js` fires `onOutage` and
+  `grantOutageSaver` gives *every* user +1, at most once per Israel day (`outage_grants`).
+  Generic fetch/HTTP failures don't trigger it.
+- The roll payload carries `saversUsed`, `saverEarned`, `streakSavers` for the banner.
+
 ## How auth flows
 
 - **Register:** `POST /api/auth/register` validates input, hashes the password with bcryptjs,
@@ -137,6 +156,7 @@ always single-use. Expired-but-unconsumed tokens are harmless (rejected on looku
 | `payload_json` | TEXT | full JSON of the roll payload (incl. `streak`/`streakBonus`) |
 | `streak` | INTEGER | consecutive-day count for this roll (1 = no streak) |
 | `streak_bonus` | INTEGER | points the streak added to the user's total (not to `score`) |
+| `saver_earned` | INTEGER | 1 if this roll awarded a streak saver (reverted on delete) |
 | `created_at` | TEXT | ISO datetime |
 
 Indexed on `(user_id, created_at DESC)` for history queries and on `score DESC` for the

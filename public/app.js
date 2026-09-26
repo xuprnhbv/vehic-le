@@ -166,7 +166,8 @@ rollBtn.addEventListener("click", async () => {
       statusEl.textContent = "כבר גלגלת היום! חזור מחר.";
       loadTodayRoll();
     } else if (err.datasetUnavailable) {
-      statusEl.textContent = "מאגר הרכבים הממשלתי לא זמין כרגע, נסה שוב מאוחר יותר";
+      statusEl.textContent =
+        "מאגר הרכבים הממשלתי לא זמין כרגע, נסה שוב מאוחר יותר. כל המשתמשים קיבלו 🛡️ מגן רצף במתנה, כך שהרצף שלך בטוח.";
     } else {
       statusEl.textContent = "תקלה ברשת, נסה שוב";
     }

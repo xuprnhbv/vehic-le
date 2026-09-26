@@ -7,9 +7,12 @@ const session = require("express-session");
 const SqliteStore = require("./session-store")(session);
 const passport = require("passport");
 
-const { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate, isDatasetEmpty } = require("./dataset");
-const { buildRollPayload, streakBonus } = require("./scoring");
-const { insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage } = require("./db");
+const { startRefreshTimer, rollRecord, takeCachedRecord, fetchRecordByPlate, isDatasetEmpty, onOutage } = require("./dataset");
+const { buildRollPayload, streakBonus, earnsStreakSaver } = require("./scoring");
+const {
+  insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage,
+  settleStreakSavers, settleAllStreakSavers, countSavesSinceLastRoll, getStreakSavers, grantOutageSaver,
+} = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
 const reactions = require("./reactions");
@@ -118,9 +121,14 @@ app.get("/api/roll", async (req, res) => {
       try {
         // Streak is derived from past rolls (no stored counter), so an in-progress
         // streak is always real. The bonus feeds the overall total, not the plate score.
+        // Spend savers on any missed days first so they bridge the streak.
+        settleStreakSavers(req.user.id);
         const streak = getCurrentStreak(req.user.id);
         payload.streak = streak;
         payload.streakBonus = streakBonus(streak);
+        payload.saversUsed = countSavesSinceLastRoll(req.user.id);
+        payload.saverEarned = earnsStreakSaver(streak);
+        payload.streakSavers = getStreakSavers(req.user.id) + (payload.saverEarned ? 1 : 0);
         insertRoll(req.user.id, payload);
         rank = getTodayRank(req.user.id);
       } catch (err) {
@@ -182,6 +190,25 @@ app.use((err, req, res, next) => {
   console.error(`[error] ${err.stack || err.message}`);
   res.status(500).json({ error: "server error" });
 });
+
+// Rolling is down (data.gov.il reports an empty registry) → one free streak saver
+// for everyone, at most once per Israel day (grantOutageSaver is idempotent).
+onOutage(() => {
+  if (grantOutageSaver()) console.log("[savers] dataset outage — granted everyone a streak saver");
+});
+
+// Spend savers on missed days in the background so profiles and the streak
+// leaderboard show saved streaks without waiting for the user's next roll.
+function settleSavers() {
+  try {
+    const spent = settleAllStreakSavers();
+    if (spent) console.log(`[savers] spent ${spent} streak saver(s) on missed days`);
+  } catch (err) {
+    console.error(`[savers] settle failed: ${err.message}`);
+  }
+}
+settleSavers();
+setInterval(settleSavers, 10 * 60 * 1000).unref();
 
 startRefreshTimer();
 push.startReminderTimer();

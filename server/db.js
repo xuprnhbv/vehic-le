@@ -147,6 +147,30 @@ try {
   db.exec(`ALTER TABLE rolls ADD COLUMN streak_bonus INTEGER NOT NULL DEFAULT 0`);
 } catch { /* column already exists — safe to ignore on every restart after first */ }
 
+// Additive migration: streak savers. users.streak_savers is the unspent balance;
+// rolls.saver_earned marks the roll that awarded one (so deleting that roll takes it
+// back and a re-roll can't farm it). streak_saves records each missed Israel day a
+// saver covered; outage_grants makes the free "rolling is down" saver once per day.
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN streak_savers INTEGER NOT NULL DEFAULT 0`);
+} catch { /* column already exists — safe to ignore on every restart after first */ }
+try {
+  db.exec(`ALTER TABLE rolls ADD COLUMN saver_earned INTEGER NOT NULL DEFAULT 0`);
+} catch { /* column already exists — safe to ignore on every restart after first */ }
+db.exec(`
+  CREATE TABLE IF NOT EXISTS streak_saves (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    day        TEXT NOT NULL,                              -- Israel calendar date 'YYYY-MM-DD'
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, day)
+  );
+
+  CREATE TABLE IF NOT EXISTS outage_grants (
+    day        TEXT PRIMARY KEY,                           -- Israel calendar date of the outage
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 const normEmail = (email) => String(email).trim().toLowerCase();
@@ -227,42 +251,148 @@ function getTodayRoll(userId) {
     .get(userId);
 }
 
-// Consecutive Israel-calendar days the user has rolled, counting today's roll
-// (which is about to be inserted, so it is not yet in `rolls` when this is called
-// from /api/roll). Walks backward from yesterday using Israel date strings to match
-// the Israel-shifted date() above, consistent with hasRolledToday.
-function getCurrentStreak(userId) {
+// ── Streak days ──────────────────────────────────────────────────────────────
+// A streak is a chain of consecutive Israel days, each either *rolled* or *saved*
+// (covered by a streak saver). Saved days bridge the chain but don't add to the
+// count — a 10-day streak that burns a saver and rolls the next day becomes 11.
+
+const shiftDay = (day, n) => {
+  const d = new Date(day + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+function rolledDays(userId) {
   const off = israelOffset();
   const rows = db
     .prepare(`SELECT DISTINCT date(created_at, '${off}') AS d FROM rolls WHERE user_id = ?`)
     .all(userId);
-  const have = new Set(rows.map((r) => r.d));
-  let streak = 1; // today's roll being made now
-  const cur = new Date(israelToday() + "T00:00:00Z");
-  cur.setUTCDate(cur.getUTCDate() - 1); // start at yesterday (Israel calendar)
-  while (have.has(cur.toISOString().slice(0, 10))) {
-    streak++;
-    cur.setUTCDate(cur.getUTCDate() - 1);
+  return new Set(rows.map((r) => r.d));
+}
+
+function savedDays(userId) {
+  const rows = db.prepare(`SELECT day FROM streak_saves WHERE user_id = ?`).all(userId);
+  return new Set(rows.map((r) => r.day));
+}
+
+// Count rolled days walking back from `start` across rolled-or-saved days.
+function walkStreak(start, rolled, saved) {
+  let streak = 0;
+  for (let d = start; rolled.has(d) || saved.has(d); d = shiftDay(d, -1)) {
+    if (rolled.has(d)) streak++;
   }
   return streak;
+}
+
+// Live streak as of now: alive only if today or yesterday is rolled/saved.
+function liveStreakFrom(rolled, saved) {
+  const today = israelToday();
+  const yesterday = shiftDay(today, -1);
+  const covered = (d) => rolled.has(d) || saved.has(d);
+  if (covered(today)) return walkStreak(today, rolled, saved);
+  if (covered(yesterday)) return walkStreak(yesterday, rolled, saved);
+  return 0; // streak broken
+}
+
+// Consecutive Israel-calendar days the user has rolled, counting today's roll
+// (which is about to be inserted, so it is not yet in `rolls` when this is called
+// from /api/roll). Walks backward from yesterday, bridging saver-covered days —
+// call settleStreakSavers first so a just-missed day is covered.
+function getCurrentStreak(userId) {
+  return 1 + walkStreak(shiftDay(israelToday(), -1), rolledDays(userId), savedDays(userId));
+}
+
+// ── Streak savers ────────────────────────────────────────────────────────────
+
+// Spend the user's savers on each fully-missed day since their last covered day,
+// oldest first, up to yesterday (today isn't missed yet). Each missed day costs one
+// saver; if they run out, the rest of the gap breaks the streak and the spent savers
+// stay spent (one is used automatically per missed day). Users who never rolled have
+// no streak to save. Returns how many savers were spent.
+function settleStreakSavers(userId) {
+  const balance = getStreakSavers(userId);
+  if (balance <= 0) return 0;
+  const rolled = rolledDays(userId);
+  if (rolled.size === 0) return 0;
+  let last = null;
+  for (const d of [...rolled, ...savedDays(userId)]) if (!last || d > last) last = d;
+
+  const yesterday = shiftDay(israelToday(), -1);
+  const days = [];
+  for (let d = shiftDay(last, 1); d <= yesterday && days.length < balance; d = shiftDay(d, 1)) {
+    days.push(d);
+  }
+  if (days.length === 0) return 0;
+
+  const insert = db.prepare(`INSERT OR IGNORE INTO streak_saves (user_id, day) VALUES (?, ?)`);
+  db.exec("BEGIN");
+  try {
+    for (const d of days) insert.run(userId, d);
+    db.prepare(`UPDATE users SET streak_savers = MAX(0, streak_savers - ?) WHERE id = ?`)
+      .run(days.length, userId);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+  return days.length;
+}
+
+// Settle every user holding savers. Run on a timer so passive views (profile, streak
+// leaderboard) show a saved streak even before the user rolls again.
+function settleAllStreakSavers() {
+  let spent = 0;
+  for (const { id } of db.prepare(`SELECT id FROM users WHERE streak_savers > 0`).all()) {
+    spent += settleStreakSavers(id);
+  }
+  return spent;
+}
+
+// Missed days covered by savers since the user's last actual roll — what the roll
+// reveal reports as "your streak was saved". Call before inserting today's roll.
+function countSavesSinceLastRoll(userId) {
+  const off = israelOffset();
+  const last = db
+    .prepare(`SELECT MAX(date(created_at, '${off}')) AS d FROM rolls WHERE user_id = ?`)
+    .get(userId)?.d;
+  if (!last) return 0;
+  return db
+    .prepare(`SELECT COUNT(*) AS n FROM streak_saves WHERE user_id = ? AND day > ?`)
+    .get(userId, last).n;
+}
+
+function getStreakSavers(userId) {
+  return db.prepare(`SELECT streak_savers FROM users WHERE id = ?`).get(userId)?.streak_savers ?? 0;
+}
+
+// Free saver for every user when rolling is broken (e.g. data.gov.il is down), at
+// most once per Israel day. Returns true only for the call that actually granted it.
+function grantOutageSaver() {
+  const info = db.prepare(`INSERT OR IGNORE INTO outage_grants (day) VALUES (?)`).run(israelToday());
+  if (info.changes === 0) return false;
+  db.prepare(`UPDATE users SET streak_savers = streak_savers + 1`).run();
+  return true;
 }
 
 function insertRoll(userId, payload) {
   const streak = payload.streak ?? 1;
   const bonus = payload.streakBonus ?? 0;
+  const saverEarned = payload.saverEarned ? 1 : 0;
   const insertStmt = db.prepare(
-    `INSERT INTO rolls (user_id, plate_display, score, tier, payload_json, streak, streak_bonus)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO rolls (user_id, plate_display, score, tier, payload_json, streak, streak_bonus, saver_earned)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
   // Streak bonus lands in the overall total (and cumulative leaderboards) but never
   // in the plate score (rolls.score) or tier.
-  const addScore = db.prepare(`UPDATE users SET total_score = total_score + ? WHERE id = ?`);
+  const addScore = db.prepare(
+    `UPDATE users SET total_score = total_score + ?, streak_savers = streak_savers + ? WHERE id = ?`
+  );
   db.exec("BEGIN");
   try {
     insertStmt.run(
-      userId, payload.plate.display, payload.score, payload.tier, JSON.stringify(payload), streak, bonus
+      userId, payload.plate.display, payload.score, payload.tier, JSON.stringify(payload), streak, bonus, saverEarned
     );
-    addScore.run(payload.score + bonus, userId);
+    addScore.run(payload.score + bonus, saverEarned, userId);
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
@@ -298,32 +428,10 @@ function getUserRollCount(userId) {
 }
 
 // The user's current streak *as of now* — returns 0 when broken (no roll today or
-// yesterday). Unlike getCurrentStreak, this does NOT assume a roll is being made right now,
-// so it's the honest value for a passive profile view. Mirrors getStreakLeaderboard's
-// per-user walk.
+// yesterday, counting saver-covered days). Unlike getCurrentStreak, this does NOT assume
+// a roll is being made right now, so it's the honest value for a passive profile view.
 function getLiveStreak(userId) {
-  const off = israelOffset();
-  const rows = db
-    .prepare(`SELECT DISTINCT date(created_at, '${off}') AS d FROM rolls WHERE user_id = ?`)
-    .all(userId);
-  const have = new Set(rows.map((r) => r.d));
-  const today = israelToday();
-  const yest = new Date(today + "T00:00:00Z");
-  yest.setUTCDate(yest.getUTCDate() - 1);
-  const yesterday = yest.toISOString().slice(0, 10);
-
-  let start;
-  if (have.has(today)) start = today;
-  else if (have.has(yesterday)) start = yesterday;
-  else return 0; // streak broken
-
-  let streak = 0;
-  const cur = new Date(start + "T00:00:00Z");
-  while (have.has(cur.toISOString().slice(0, 10))) {
-    streak++;
-    cur.setUTCDate(cur.getUTCDate() - 1);
-  }
-  return streak;
+  return liveStreakFrom(rolledDays(userId), savedDays(userId));
 }
 
 function getTodayRank(userId) {
@@ -392,32 +500,19 @@ function getStreakLeaderboard(limit = 50) {
   for (const { id, username, d } of rows) {
     let entry = byUser.get(id);
     if (!entry) {
-      entry = { username, dates: new Set() };
+      entry = { username, rolled: new Set(), saved: new Set() };
       byUser.set(id, entry);
     }
-    entry.dates.add(d);
+    entry.rolled.add(d);
+  }
+  for (const { user_id, day } of db.prepare(`SELECT user_id, day FROM streak_saves`).all()) {
+    byUser.get(user_id)?.saved.add(day);
   }
 
-  const today = israelToday();
-  const yest = new Date(today + "T00:00:00Z");
-  yest.setUTCDate(yest.getUTCDate() - 1);
-  const yesterday = yest.toISOString().slice(0, 10);
-
   const result = [];
-  for (const { username, dates } of byUser.values()) {
-    // Walk back from the most recent of {today, yesterday} the user actually has.
-    let start;
-    if (dates.has(today)) start = today;
-    else if (dates.has(yesterday)) start = yesterday;
-    else continue; // streak broken
-
-    let streak = 0;
-    const cur = new Date(start + "T00:00:00Z");
-    while (dates.has(cur.toISOString().slice(0, 10))) {
-      streak++;
-      cur.setUTCDate(cur.getUTCDate() - 1);
-    }
-    result.push({ username, streak });
+  for (const { username, rolled, saved } of byUser.values()) {
+    const streak = liveStreakFrom(rolled, saved);
+    if (streak > 0) result.push({ username, streak });
   }
 
   result.sort((a, b) => b.streak - a.streak || a.username.localeCompare(b.username));
@@ -606,13 +701,17 @@ function getAllRolls(limit = 100) {
 }
 
 function deleteRoll(rollId) {
-  const roll = db.prepare(`SELECT user_id, score, streak_bonus FROM rolls WHERE id = ?`).get(rollId);
+  const roll = db
+    .prepare(`SELECT user_id, score, streak_bonus, saver_earned FROM rolls WHERE id = ?`)
+    .get(rollId);
   if (!roll) return;
   db.exec("BEGIN");
   try {
     db.prepare(`DELETE FROM rolls WHERE id = ?`).run(rollId);
-    db.prepare(`UPDATE users SET total_score = MAX(0, total_score - ?) WHERE id = ?`)
-      .run(roll.score + roll.streak_bonus, roll.user_id);
+    db.prepare(
+      `UPDATE users SET total_score = MAX(0, total_score - ?), streak_savers = MAX(0, streak_savers - ?)
+       WHERE id = ?`
+    ).run(roll.score + roll.streak_bonus, roll.saver_earned, roll.user_id);
     db.exec("COMMIT");
   } catch (err) {
     db.exec("ROLLBACK");
@@ -623,14 +722,17 @@ function deleteRoll(rollId) {
 function deleteTodayRoll(userId) {
   const off = israelOffset();
   const row = db.prepare(
-    `SELECT COALESCE(SUM(score) + SUM(streak_bonus), 0) AS s
+    `SELECT COALESCE(SUM(score) + SUM(streak_bonus), 0) AS s, COALESCE(SUM(saver_earned), 0) AS savers
      FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}')`
   ).get(userId);
   db.exec("BEGIN");
   try {
     db.prepare(`DELETE FROM rolls WHERE user_id = ? AND date(created_at, '${off}') = date('now', '${off}')`).run(userId);
-    if (row.s > 0) {
-      db.prepare(`UPDATE users SET total_score = MAX(0, total_score - ?) WHERE id = ?`).run(row.s, userId);
+    if (row.s > 0 || row.savers > 0) {
+      db.prepare(
+        `UPDATE users SET total_score = MAX(0, total_score - ?), streak_savers = MAX(0, streak_savers - ?)
+         WHERE id = ?`
+      ).run(row.s, row.savers, userId);
     }
     db.exec("COMMIT");
   } catch (err) {
@@ -727,6 +829,11 @@ module.exports = {
   getTodayRoll,
   getTodayRank,
   getCurrentStreak,
+  settleStreakSavers,
+  settleAllStreakSavers,
+  countSavesSinceLastRoll,
+  getStreakSavers,
+  grantOutageSaver,
   insertRoll,
   getUserHistory,
   getUserTotalScore,

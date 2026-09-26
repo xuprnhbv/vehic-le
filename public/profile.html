@@ -45,6 +45,10 @@
           <p class="profile-stat-value" id="statStreak">—</p>
         </div>
         <div class="profile-stat">
+          <p class="profile-stat-label">מגיני רצף</p>
+          <p class="profile-stat-value" id="statSavers">0</p>
+        </div>
+        <div class="profile-stat">
           <p class="profile-stat-label">סך גלגולים</p>
           <p class="profile-stat-value" id="statRolls">0</p>
         </div>
@@ -124,6 +128,7 @@
         document.getElementById("statScore").textContent = p.totalScore.toLocaleString("he-IL");
         document.getElementById("statStreak").textContent =
           p.currentStreak > 0 ? `${p.currentStreak} 🔥` : "אין רצף פעיל";
+        document.getElementById("statSavers").textContent = `${p.streakSavers ?? 0} 🛡️`;
         document.getElementById("statRolls").textContent = p.rollCount.toLocaleString("he-IL");
         document.getElementById("statSince").textContent = p.memberSince
           ? new Date(p.memberSince.replace(" ", "T") + "Z").toLocaleDateString("he-IL")
