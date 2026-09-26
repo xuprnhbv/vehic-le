@@ -41,7 +41,8 @@ router.get("/me/today", requireAuth, (req, res, next) => {
   }
 });
 
-// Current user's recent rolls.
+// Current user's recent rolls, plus their streak-saver balance and the days a saver
+// covered (the client interleaves those into the list by date).
 router.get("/me/history", requireAuth, (req, res, next) => {
   try {
     const rows = db.getUserHistory(req.user.id, 50).map((r) => ({
@@ -52,7 +53,12 @@ router.get("/me/history", requireAuth, (req, res, next) => {
       payload: r.payload_json ? JSON.parse(r.payload_json) : null,
     }));
     const totalScore = db.getUserTotalScore(req.user.id);
-    res.json({ rolls: rows, totalScore });
+    res.json({
+      rolls: rows,
+      totalScore,
+      streakSavers: db.getStreakSavers(req.user.id),
+      saves: db.getUserSaves(req.user.id),
+    });
   } catch (err) {
     next(err);
   }

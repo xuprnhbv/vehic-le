@@ -1360,6 +1360,16 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
+.savers-balance {
+  margin: 0.6rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.save-row td { color: #7dd3fc; font-weight: 600; }
+.save-row { background: rgba(125, 211, 252, 0.06); }
+
 .roll-row { cursor: pointer; }
 .roll-row:hover { background: rgba(148, 163, 184, 0.08); }
 .expand-toggle { color: var(--muted); font-size: 0.8rem; text-align: center; width: 1.5rem; }

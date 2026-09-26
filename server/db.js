@@ -367,6 +367,14 @@ function countSavesSinceLastRoll(userId) {
     .get(userId, last).n;
 }
 
+// Days a saver covered for this user, newest first (Israel 'YYYY-MM-DD').
+function getUserSaves(userId, limit = 100) {
+  return db
+    .prepare(`SELECT day FROM streak_saves WHERE user_id = ? ORDER BY day DESC LIMIT ?`)
+    .all(userId, limit)
+    .map((r) => r.day);
+}
+
 function getStreakSavers(userId) {
   return db.prepare(`SELECT streak_savers FROM users WHERE id = ?`).get(userId)?.streak_savers ?? 0;
 }
@@ -867,6 +875,7 @@ module.exports = {
   settleAllStreakSavers,
   countSavesSinceLastRoll,
   getStreakSavers,
+  getUserSaves,
   grantOutageSaver,
   backfillStreakSavers,
   insertRoll,
