@@ -199,7 +199,10 @@ announcement re-triggers, a dismissed one never does. See [`How announcements fl
   literal Hebrew, not escaped.
 - **Row count is cached, not per-roll.** [`startRefreshTimer`](server/dataset.js) fetches
   the total once at boot and every 6h (`REFRESH_MS`). Don't add a count fetch to the roll
-  path; `rollRecord` only lazily refreshes if the cache is still empty.
+  path; `rollRecord` only lazily refreshes if the cache is still empty. Exception: a
+  successful count of **0** is trusted (data.gov.il empties the table while re-importing),
+  so rolls answer `503 dataset_unavailable` and re-check the count at most once a minute
+  until rows return; an empty offset also triggers a refresh + one retry.
 - **Node 22.5+ required** — for global `fetch` *and* the built-in `node:sqlite` module
   (declared in `package.json` engines). `node:sqlite` emits an `ExperimentalWarning` on
   boot; that's expected.

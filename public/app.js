@@ -41,6 +41,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function roll() {
   const res = await fetch("/api/roll");
   if (res.status === 429) throw Object.assign(new Error("daily_limit"), { dailyLimit: true });
+  if (res.status === 503) throw Object.assign(new Error("dataset_unavailable"), { datasetUnavailable: true });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json(); // { plate, fields, platePerks, score, tier }
 }
@@ -164,6 +165,8 @@ rollBtn.addEventListener("click", async () => {
       hitDailyLimit = true;
       statusEl.textContent = "כבר גלגלת היום! חזור מחר.";
       loadTodayRoll();
+    } else if (err.datasetUnavailable) {
+      statusEl.textContent = "מאגר הרכבים הממשלתי לא זמין כרגע, נסה שוב מאוחר יותר";
     } else {
       statusEl.textContent = "תקלה ברשת, נסה שוב";
     }

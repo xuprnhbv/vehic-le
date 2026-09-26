@@ -81,6 +81,8 @@ form.addEventListener("submit", async (e) => {
       showMsg(err.userMessage || "הרכב לא נמצא במאגר", "#f87171");
     } else if (err.status === 429) {
       showMsg(err.userMessage || "יותר מדי בקשות, נסו שוב מאוחר יותר", "#f87171");
+    } else if (err.status === 503) {
+      showMsg(err.userMessage || "מאגר הרכבים לא זמין כרגע, נסו שוב מאוחר יותר", "#f87171");
     } else if (err.status === 400) {
       showMsg(err.userMessage || "מספר רכב לא תקין", "#f87171");
     } else {
