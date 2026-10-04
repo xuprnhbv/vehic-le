@@ -100,6 +100,10 @@ bridges that **don't add** to the count (10 days → saver → roll = 11).
 - **Outage gift:** when data.gov.il reports 0 rows, `dataset.js` fires `onOutage` and
   `grantOutageSaver` gives *every* user +1, at most once per Israel day (`outage_grants`).
   Generic fetch/HTTP failures don't trigger it.
+- **Admin grant:** the dashboard's users table shows each balance; `POST
+  /api/admin/users/:id/streak-savers` (`adjustStreakSavers`) adds ±N (negative removes,
+  floored at 0) and `POST /api/admin/streak-savers/grant-all` gives +N to everyone.
+  Amounts are whole numbers capped at 100; each grant is logged with the admin's name.
 - The roll payload carries `saversUsed`, `saverEarned`, `streakSavers` for the banner.
 - **Launch backfill:** `backfillStreakSavers` ran once at the first boot with savers, giving
   each user `floor(live streak / 10)`. The `data_migrations` table records it so it never

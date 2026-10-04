@@ -112,7 +112,10 @@
     <section class="list-panel" style="margin-top:1.5rem">
       <div class="section-header">
         <h2 class="section-title">משתמשים</h2>
-        <input id="userSearch" type="search" placeholder="חפש לפי שם משתמש או מייל…" class="admin-search" />
+        <div class="admin-filters">
+          <input id="userSearch" type="search" placeholder="חפש לפי שם משתמש או מייל…" class="admin-search" />
+          <button id="grantAllSaversBtn" class="admin-btn">🛟 שומר רצף לכולם</button>
+        </div>
       </div>
       <table class="score-table" id="usersTable">
         <thead>
@@ -123,6 +126,7 @@
             <th>מאומת</th>
             <th>מנהל</th>
             <th>גלגולים</th>
+            <th>שומרי רצף</th>
             <th>נרשם</th>
             <th>פעולות</th>
           </tr>
@@ -314,8 +318,12 @@
               <td>${u.email_verified ? "✓" : "✗"}</td>
               <td>${u.is_admin ? "✓" : "—"}</td>
               <td class="mono">${u.roll_count}</td>
+              <td class="mono">${u.streak_savers}</td>
               <td style="font-size:0.8rem">${date}</td>
               <td class="action-cell">
+                <button class="admin-btn savers-btn" data-id="${u.id}" data-name="${u.username}" data-savers="${u.streak_savers}">
+                  🛟 שומרים
+                </button>
                 <button class="admin-btn reset-roll-btn" data-id="${u.id}" data-name="${u.username}" ${!u.rolled_today ? 'disabled style="opacity:0.35;cursor:default"' : ''}>
                   אפס גלגול היום
                 </button>
@@ -491,7 +499,27 @@
         const toggleBtn   = e.target.closest(".toggle-admin-btn");
         const deleteBtn   = e.target.closest(".delete-user-btn");
         const resetRollBtn = e.target.closest(".reset-roll-btn:not([disabled])");
+        const saversBtn   = e.target.closest(".savers-btn");
         const q = document.getElementById("userSearch").value.trim();
+
+        if (saversBtn) {
+          const id   = saversBtn.dataset.id;
+          const name = saversBtn.dataset.name;
+          const raw  = prompt(
+            `כמה שומרי רצף להעניק ל"${name}"? (יתרה נוכחית: ${saversBtn.dataset.savers})
+מספר שלילי מוריד שומרים.`,
+            "1"
+          );
+          if (raw === null) return;
+          const res = await fetch(`/api/admin/users/${id}/streak-savers`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount: Number(raw.trim()) }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) { alert(data.error || "שגיאה"); return; }
+          loadUsers(q);
+        }
 
         if (resetRollBtn) {
           const id   = resetRollBtn.dataset.id;
@@ -526,6 +554,22 @@
           loadUsers(q);
           loadRolls();
         }
+      });
+
+      document.getElementById("grantAllSaversBtn").addEventListener("click", async () => {
+        const raw = prompt("כמה שומרי רצף להעניק לכל המשתמשים?", "1");
+        if (raw === null) return;
+        const amount = Number(raw.trim());
+        if (!confirm(`להעניק ${amount} שומרי רצף לכל המשתמשים?`)) return;
+        const res = await fetch("/api/admin/streak-savers/grant-all", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(data.error || "שגיאה"); return; }
+        alert(`הוענקו ${amount} שומרי רצף ל-${data.users} משתמשים.`);
+        loadUsers(document.getElementById("userSearch").value.trim());
       });
 
       document.getElementById("rollsTbody").addEventListener("click", async (e) => {

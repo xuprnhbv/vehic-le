@@ -35,6 +35,43 @@ router.patch("/users/:id/admin", (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Streak-saver amounts: a non-zero whole number, bounded so a typo can't add millions.
+function parseSaverAmount(raw, { allowNegative }) {
+  const amount = Number(raw);
+  if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 100) return null;
+  if (amount < 0 && !allowNegative) return null;
+  return amount;
+}
+
+router.post("/users/:id/streak-savers", (req, res, next) => {
+  try {
+    const userId = Number(req.params.id);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: "מזהה משתמש לא תקין" });
+    }
+    const amount = parseSaverAmount(req.body.amount, { allowNegative: true });
+    if (amount === null) {
+      return res.status(400).json({ error: "הכמות חייבת להיות מספר שלם בין -100 ל-100 (לא 0)" });
+    }
+    const streakSavers = db.adjustStreakSavers(userId, amount);
+    if (streakSavers === null) return res.status(404).json({ error: "משתמש לא נמצא" });
+    console.log(`[admin] ${req.user.username} adjusted streak savers for user #${userId} by ${amount} → ${streakSavers}`);
+    res.json({ ok: true, streakSavers });
+  } catch (err) { next(err); }
+});
+
+router.post("/streak-savers/grant-all", (req, res, next) => {
+  try {
+    const amount = parseSaverAmount(req.body.amount, { allowNegative: false });
+    if (amount === null) {
+      return res.status(400).json({ error: "הכמות חייבת להיות מספר שלם בין 1 ל-100" });
+    }
+    const users = db.grantStreakSaversToAll(amount);
+    console.log(`[admin] ${req.user.username} granted ${amount} streak saver(s) to all ${users} users`);
+    res.json({ ok: true, users });
+  } catch (err) { next(err); }
+});
+
 router.delete("/users/:id/today-roll", (req, res, next) => {
   try {
     const userId = Number(req.params.id);

@@ -388,6 +388,20 @@ function grantOutageSaver() {
   return true;
 }
 
+// Admin adjustment of one user's saver balance. A negative amount takes savers away
+// (floored at 0). Returns the new balance, or null if the user doesn't exist.
+function adjustStreakSavers(userId, amount) {
+  const info = db
+    .prepare(`UPDATE users SET streak_savers = MAX(0, streak_savers + ?) WHERE id = ?`)
+    .run(amount, userId);
+  return info.changes ? getStreakSavers(userId) : null;
+}
+
+// Admin gift: +amount savers for every user. Returns how many users received it.
+function grantStreakSaversToAll(amount) {
+  return Number(db.prepare(`UPDATE users SET streak_savers = streak_savers + ?`).run(amount).changes);
+}
+
 // One-time launch grant: savers for streaks built before savers existed — one per full
 // 10 days of the user's current live streak (30–39 → 3, 40–49 → 4, …). Runs once
 // ever, guarded by data_migrations. Returns how many users were awarded (null if it
@@ -760,7 +774,7 @@ function getAdminStats() {
 function getAllUsers() {
   const off = israelOffset();
   return db.prepare(`
-    SELECT u.id, u.username, u.email, u.email_verified, u.is_admin, u.created_at,
+    SELECT u.id, u.username, u.email, u.email_verified, u.is_admin, u.created_at, u.streak_savers,
            COUNT(r.id) AS roll_count,
            EXISTS(SELECT 1 FROM rolls t WHERE t.user_id = u.id AND date(t.created_at, '${off}') = date('now', '${off}')) AS rolled_today
     FROM users u
@@ -774,7 +788,7 @@ function searchUsers(query) {
   const off = israelOffset();
   const like = `%${query}%`;
   return db.prepare(`
-    SELECT u.id, u.username, u.email, u.email_verified, u.is_admin, u.created_at,
+    SELECT u.id, u.username, u.email, u.email_verified, u.is_admin, u.created_at, u.streak_savers,
            COUNT(r.id) AS roll_count,
            EXISTS(SELECT 1 FROM rolls t WHERE t.user_id = u.id AND date(t.created_at, '${off}') = date('now', '${off}')) AS rolled_today
     FROM users u
@@ -939,6 +953,8 @@ module.exports = {
   getStreakSavers,
   getUserSaves,
   grantOutageSaver,
+  adjustStreakSavers,
+  grantStreakSaversToAll,
   backfillStreakSavers,
   refundDeadStreakSaves,
   insertRoll,
