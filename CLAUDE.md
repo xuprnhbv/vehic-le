@@ -17,7 +17,7 @@ the remote registry it reads to roll plates).
 ## Layout
 
 ```
-package.json     deps + "npm start" → node server/index.js, engines node>=22.5
+package.json     deps + "npm start" → node server/index.js, engines node>=22.13
 .env             runtime config (gitignored — copy from .env.example, fill in values)
 .env.example     config template with all supported keys documented
 server/
@@ -64,11 +64,12 @@ datastore is the source of plate records only. No automated test suite.
 
 Logged-in users earn a **streak bonus** for rolling on consecutive days. The streak is
 *never* stored as a counter — [`getCurrentStreak`](server/db.js) derives it at roll time by
-walking back over the user's distinct roll dates (Israel calendar days — `date()`
-shifted by Israel's live, DST-aware UTC offset via `israelOffset`), so an
-in-progress streak is always real. The roll "day" resets at midnight Israel time, not
-UTC; every `date(created_at) = date('now')` comparison in [`server/db.js`](server/db.js)
-applies the same Israel offset. The bonus comes from [`streakBonus`](server/scoring.js)
+walking back over the user's distinct roll dates, so an in-progress streak is always
+real. The roll "day" resets at midnight Israel time, not UTC. Stored timestamps are
+always bucketed with the `israel_date()` SQL function in [`server/db.js`](server/db.js),
+which uses the offset in force **when the roll was made** — never `date(created_at,
+<today's offset>)`, which re-dates rolls near midnight after each DST change and breaks
+streaks. Only `date('now', israelOffset())` uses the current offset. The bonus comes from [`streakBonus`](server/scoring.js)
 (Standard curve: +2/day, capped at day 20, plus milestone jumps at 7/30/100 days).
 
 The bonus is added to the player's **overall score** (`users.total_score`) and to the
@@ -234,8 +235,8 @@ announcement re-triggers, a dismissed one never does. See [`How announcements fl
   successful count of **0** is trusted (data.gov.il empties the table while re-importing),
   so rolls answer `503 dataset_unavailable` and re-check the count at most once a minute
   until rows return; an empty offset also triggers a refresh + one retry.
-- **Node 22.5+ required** — for global `fetch` *and* the built-in `node:sqlite` module
-  (declared in `package.json` engines). `node:sqlite` emits an `ExperimentalWarning` on
+- **Node 22.13+ required** — for global `fetch` *and* the built-in `node:sqlite` module
+  including `db.function` (declared in `package.json` engines). `node:sqlite` emits an `ExperimentalWarning` on
   boot; that's expected.
 - **Saving a roll stays server-side.** Rows in `rolls` are written only inside `/api/roll`
   from the server's own payload. `rolls.js` is read-only — never add a client-driven
