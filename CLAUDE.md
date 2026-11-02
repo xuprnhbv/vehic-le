@@ -111,6 +111,9 @@ bridges that **don't add** to the count (10 days → saver → roll = 11).
   repeats — reuse that table for other one-time data migrations.
 - **Launch repair:** `refundDeadStreakSaves` (one-time) refunded savers that the first,
   buggy settle logic spent on dormant players' long-dead streaks.
+- **DST repair:** `repairDstStreakRolls` (one-time) corrected rolls stored with streaks cut
+  short by the Oct 2026 DST re-dating bug: streak, bonus, saver flag, `total_score`, and
+  missed savers. Savers wrongly awarded were left with the player.
 
 ## How auth flows
 

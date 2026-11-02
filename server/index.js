@@ -12,7 +12,7 @@ const { buildRollPayload, streakBonus, earnsStreakSaver } = require("./scoring")
 const {
   insertRoll, hasRolledToday, getTodayRank, getCurrentStreak, createMessage,
   settleStreakSavers, settleAllStreakSavers, countSavesSinceLastRoll, getStreakSavers, grantOutageSaver,
-  backfillStreakSavers, refundDeadStreakSaves,
+  backfillStreakSavers, refundDeadStreakSaves, repairDstStreakRolls,
 } = require("./db");
 const auth = require("./auth");
 const rolls = require("./rolls");
@@ -222,6 +222,13 @@ try {
   if (refunded !== null) console.log(`[savers] refunded ${refunded} saver(s) spent on dead streaks`);
 } catch (err) {
   console.error(`[savers] dead-save refund failed: ${err.message}`);
+}
+// One-time repair: rolls stored with streaks cut short by the DST re-dating bug.
+try {
+  const repaired = repairDstStreakRolls();
+  if (repaired !== null) console.log(`[streaks] DST repair: ${JSON.stringify(repaired)}`);
+} catch (err) {
+  console.error(`[streaks] DST repair failed: ${err.message}`);
 }
 settleSavers();
 setInterval(settleSavers, 10 * 60 * 1000).unref();

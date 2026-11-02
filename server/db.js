@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { DatabaseSync } = require("node:sqlite"); // built-in (Node >= 22.13 for db.function)
+const { streakBonus, earnsStreakSaver } = require("./scoring");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -474,6 +475,52 @@ function refundDeadStreakSaves() {
     throw err;
   }
   return refunded;
+}
+
+// One-time repair: rolls made after the Oct 2026 clock change stored streaks cut short by
+// the DST re-dating bug (see israel_date). Recompute each one's streak, bonus and saver
+// flag, top up total_score, and grant savers that were missed. Savers wrongly awarded
+// are kept — the player didn't cause the bug. Returns { rolls, points, savers } (null if
+// it already ran).
+function repairDstStreakRolls() {
+  const NAME = "repair_dst_streak_rolls";
+  if (db.prepare(`SELECT 1 FROM data_migrations WHERE name = ?`).get(NAME)) return null;
+
+  const DST_ENDED = "2026-10-24 23:00:00"; // UTC
+  const select = db.prepare(
+    `SELECT id, user_id, israel_date(created_at) AS day, streak, streak_bonus, saver_earned, payload_json
+     FROM rolls WHERE created_at >= ?`
+  );
+  const update = db.prepare(
+    `UPDATE rolls SET streak = ?, streak_bonus = ?, saver_earned = ?, payload_json = ? WHERE id = ?`
+  );
+  const credit = db.prepare(
+    `UPDATE users SET total_score = total_score + ?, streak_savers = streak_savers + ? WHERE id = ?`
+  );
+  const result = { rolls: 0, points: 0, savers: 0 };
+  db.exec("BEGIN");
+  try {
+    for (const roll of select.all(DST_ENDED)) {
+      const streak = 1 + walkStreak(shiftDay(roll.day, -1), rolledDays(roll.user_id), savedDays(roll.user_id));
+      if (streak === roll.streak) continue;
+      const bonus = streakBonus(streak);
+      const earned = earnsStreakSaver(streak);
+      const payload = JSON.parse(roll.payload_json);
+      Object.assign(payload, { streak, streakBonus: bonus, saverEarned: earned });
+      update.run(streak, bonus, earned ? 1 : 0, JSON.stringify(payload), roll.id);
+      const savers = earned && !roll.saver_earned ? 1 : 0;
+      credit.run(bonus - roll.streak_bonus, savers, roll.user_id);
+      result.rolls++;
+      result.points += bonus - roll.streak_bonus;
+      result.savers += savers;
+    }
+    db.prepare(`INSERT INTO data_migrations (name) VALUES (?)`).run(NAME);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+  return result;
 }
 
 function insertRoll(userId, payload) {
@@ -963,6 +1010,7 @@ module.exports = {
   grantStreakSaversToAll,
   backfillStreakSavers,
   refundDeadStreakSaves,
+  repairDstStreakRolls,
   insertRoll,
   getUserHistory,
   getUserTotalScore,
